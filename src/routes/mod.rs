@@ -12,15 +12,28 @@ use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer, trace::
 
 pub fn router(state: AppState, asset_dir: impl AsRef<Path>) -> Router {
     Router::new()
-        .route("/", get(controllers::home::index))
-        .route("/comments", post(controllers::comments::create))
+        .route("/", get(controllers::auth::dashboard))
+        .route("/dashboard", get(controllers::auth::dashboard))
+        .route(
+            "/signup",
+            get(controllers::auth::signup_page).post(controllers::auth::signup),
+        )
+        .route(
+            "/login",
+            get(controllers::auth::login_page).post(controllers::auth::login),
+        )
+        .route(
+            "/account",
+            get(controllers::auth::account_page).post(controllers::auth::account),
+        )
+        .route("/logout", post(controllers::auth::logout))
         .nest_service("/assets", ServeDir::new(asset_dir))
         .fallback(|| async {
             (
                 StatusCode::NOT_FOUND,
                 views::layout::page(
                     "Page not found",
-                    maud::html! { h1 { "Page not found" } a href="/" { "Back to comments" } },
+                    maud::html! { h1 { "Page not found" } a href="/" { "Back to home" } },
                 ),
             )
         })
@@ -43,7 +56,7 @@ pub fn router(state: AppState, asset_dir: impl AsRef<Path>) -> Router {
 }
 
 // Reject browser cross-origin writes. Origin-less clients (curl, tests) are allowed.
-// Add session-bound CSRF tokens when introducing cookie authentication.
+// Authenticated forms additionally validate session-bound CSRF tokens.
 async fn same_origin(request: Request, next: Next) -> Response {
     if request.method() == axum::http::Method::POST {
         let headers = request.headers();

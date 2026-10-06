@@ -28,8 +28,8 @@ src/
   error.rs            Logged internal errors with safe HTTP responses
   routes/             URL mappings, middleware, static asset serving
   controllers/        Request extraction and model/view coordination
-  models/             Comment records, validation, parameterized SQL
-  views/              Maud layout, index, form, and comment list
+  models/             Users, sessions, validation, parameterized SQL
+  views/              Maud layout, dashboard, auth/account forms
   bin/migrate.rs      Standalone migration command
 migrations/           Ordered SQL migrations
 frontend/scss/        Bootstrap and application styles
@@ -38,9 +38,13 @@ scripts/              npm asset build/watch process
 tests/                HTTP integration tests against temporary SQLite files
 ```
 
-`GET /` calls the index controller, queries comments, and renders a complete page. `POST /comments` validates and inserts a `Comment`. With `HX-Request: true`, it renders just the comments panel, including a cleared form and every saved comment in newest-first order. Without HTMX, it uses a 303 redirect back to the index. Validation returns 422 with the draft preserved. Maud escapes all user content; queries bind parameters. The model accepts only validated input for inserts.
+## Accounts and dashboard
 
-The HTMX target contains both the form and the list so field errors, success messages, and comments stay consistent in one swap. Only successful writes clear the draft. Database errors retarget a separate error region, preserving the form.
+`/` and `/dashboard` require login. `/signup` asks for username, password, name, and email, then signs the user in. `/login` accepts username and password. Usernames are case-insensitive and use 3–32 ASCII letters, numbers, underscores, or hyphens. Passwords require 12–128 characters; no confirmation field is used. Email addresses are case-insensitive and unique; email delivery and verification are not implemented.
+
+The dashboard has Home navigation, a welcome message, and a profile menu linking to `/account` and a CSRF-protected POST to `/logout`. Account settings allow name, email, and password changes. Only password changes require the current password; name and email changes do not. Leaving the new password blank preserves it. Password changes revoke all prior sessions. Successful authentication and account updates rotate the current session.
+
+Passwords use Argon2id with random salts, computed outside the async runtime. Sessions use cryptographically random tokens; only token hashes are stored in SQLite. Login sessions expire after seven days, anonymous form sessions after one hour. Cookies use HttpOnly and SameSite=Lax; set `SESSION_COOKIE_SECURE=true` in HTTPS deployments. Auth forms use HTMX to render server validation as a 422 form fragment with non-password drafts preserved; successful HTMX writes use `HX-Redirect`. JavaScript-free forms use complete validation pages and 303 redirects. Password fields are never repopulated.
 
 ## SQLite migrations
 
@@ -48,7 +52,7 @@ The HTMX target contains both the form and the list so field errors, success mes
 cargo run --bin migrate
 ```
 
-The server also runs this same migrator automatically. SQLx tracks applied versions and checksums in `_sqlx_migrations`. Applied migrations should never be edited; add a new migration instead. `build.rs` ensures migration changes rebuild the embedded migration set. Compilation does not need a running database: queries use typed `query_as` with integration tests verifying SQL against the real schema.
+The server also runs this same migrator automatically. SQLx tracks applied versions and checksums in `_sqlx_migrations`. Applied migrations should never be edited; add a new migration instead. The retired architecture-demo migration (`20261006000000`) is the sole allowed missing version, so existing development databases can still start. Its old table and migration history are left untouched; new databases contain only the application tables. `build.rs` ensures migration changes rebuild the embedded migration set. Compilation does not need a running database: queries use typed `query_as` with integration tests verifying SQL against the real schema.
 
 Add a migration manually with a unique increasing timestamp, such as `migrations/20261007000000_add_example.sql`, or optionally install SQLx CLI:
 
@@ -70,6 +74,7 @@ Copy `.env.example` to `.env`; real environment variables override `.env`.
 | `DATABASE_URL` | `sqlite://jobtowel.db` | SQLite connection string |
 | `BIND_ADDR` | `127.0.0.1:3000` | Socket address |
 | `ASSET_DIR` | `static/assets` | Built asset directory, relative to working directory |
+| `SESSION_COOKIE_SECURE` | `false` | Enable Secure session cookies; set `true` behind HTTPS |
 | `RUST_LOG` | `jobtowel=info,tower_http=info` | Tracing filter |
 
 ## Checks
@@ -81,7 +86,7 @@ cargo test
 npm run build
 ```
 
-Tests cover the page, HTMX fragments, JavaScript-free submission, SQLite persistence across reconnects, idempotent migrations, Unicode limits, invalid input, escaping, same-origin protection, request size limits, and safe database errors.
+Tests cover authentication, protected pages, account updates, session rotation and expiry, CSRF protection, HTMX validation fragments, JavaScript-free responses, invalid input, escaping, safe database errors, and migration compatibility.
 
 ## Extending and deploying
 
@@ -89,7 +94,7 @@ Add domain types and SQL in `models`, templates in `views`, handlers in `control
 
 Build assets with `npm ci && npm run build`, then compile with `cargo build --release`. Ship the executable and `static/assets`, provide a writable persistent SQLite location, and set environment variables. The binary embeds migrations but serves assets from disk. SIGTERM and Ctrl-C stop accepting requests and drain in-flight work before closing the pool.
 
-This demo intentionally lists all comments as requested. Add pagination, authentication, moderation, and rate limits as the application grows. Browser cross-origin POSTs are rejected using Origin and Fetch Metadata; origin-less API clients are allowed. Add session-bound CSRF tokens when adding cookie authentication. Behind a reverse proxy, preserve the original Host header. Run TLS at the reverse proxy and back up SQLite using its backup API or a consistent snapshot including WAL state.
+Add rate limits as the application grows. Browser cross-origin POSTs are rejected using Origin and Fetch Metadata; origin-less API clients are allowed. Authentication forms validate session-bound CSRF tokens. Behind a reverse proxy, preserve the original Host header. Run TLS at the reverse proxy and back up SQLite using its backup API or a consistent snapshot including WAL state.
 
 ## Reference documentation
 

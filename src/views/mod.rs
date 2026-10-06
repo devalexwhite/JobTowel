@@ -1,3 +1,2 @@
-pub mod comments;
-pub mod home;
+pub mod auth;
 pub mod layout;

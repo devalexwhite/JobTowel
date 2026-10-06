@@ -1,10 +1,35 @@
 @import "bootstrap/scss/bootstrap";
 
 body { background-color: var(--bs-tertiary-bg); }
-.comments-container { max-width: 46rem; }
-.comment-body { white-space: pre-wrap; overflow-wrap: anywhere; }
-textarea { resize: vertical; }
 .htmx-indicator { visibility: hidden; }
 .htmx-request.htmx-indicator,
 .htmx-request .htmx-indicator { visibility: visible; }
 ::selection { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
+
+.auth-container { max-width: 28rem; }
+.profile-menu { position: relative; }
+.profile-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  color: var(--bs-primary-text-emphasis);
+  background: var(--bs-primary-bg-subtle);
+  cursor: pointer;
+  list-style: none;
+  border: 1px solid var(--bs-primary-border-subtle);
+}
+.profile-trigger::-webkit-details-marker { display: none; }
+.profile-trigger:hover { background: var(--bs-secondary-bg); }
+.profile-trigger:focus-visible { outline: 3px solid var(--bs-primary); outline-offset: 3px; }
+.profile-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + .5rem);
+  min-width: 10rem;
+  z-index: 10;
+  box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .14);
+}
+.profile-popover .dropdown-item { padding: .6rem .75rem; }

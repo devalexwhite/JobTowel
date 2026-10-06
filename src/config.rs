@@ -4,6 +4,7 @@ pub struct Config {
     pub database_url: String,
     pub bind_addr: SocketAddr,
     pub asset_dir: PathBuf,
+    pub session_cookie_secure: bool,
 }
 
 impl Config {
@@ -14,6 +15,9 @@ impl Config {
             Err(error) => return Err(error.into()),
         }
         Ok(Self {
+            session_cookie_secure: env::var("SESSION_COOKIE_SECURE")
+                .unwrap_or_else(|_| "false".into())
+                .parse()?,
             database_url: env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "sqlite://jobtowel.db".into()),
             bind_addr: env::var("BIND_ADDR")

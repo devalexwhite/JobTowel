@@ -17,7 +17,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let pool = db::connect(&config.database_url).await?;
     db::migrate(&pool).await?;
-    let app = routes::router(AppState { pool: pool.clone() }, &config.asset_dir);
+    let app = routes::router(
+        AppState {
+            pool: pool.clone(),
+            session_cookie_secure: config.session_cookie_secure,
+        },
+        &config.asset_dir,
+    );
     let listener = tokio::net::TcpListener::bind(config.bind_addr).await?;
     tracing::info!(address = %listener.local_addr()?, "server listening");
     axum::serve(listener, app)

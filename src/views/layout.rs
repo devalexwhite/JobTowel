@@ -1,6 +1,24 @@
+use crate::models::auth::User;
 use maud::{DOCTYPE, Markup, html};
 
+fn initials(name: &str) -> String {
+    let mut parts = name.split_whitespace();
+    let Some(first) = parts.next() else {
+        return String::new();
+    };
+    first
+        .chars()
+        .next()
+        .into_iter()
+        .chain(parts.next_back().and_then(|last| last.chars().next()))
+        .flat_map(char::to_uppercase)
+        .collect()
+}
+
 pub fn page(title: &str, content: Markup) -> Markup {
+    shell(title, content, None, "")
+}
+pub fn shell(title: &str, content: Markup, user: Option<&User>, csrf: &str) -> Markup {
     html! {
         (DOCTYPE)
         html lang="en" {
@@ -14,12 +32,26 @@ pub fn page(title: &str, content: Markup) -> Markup {
             body {
                 a class="visually-hidden-focusable" href="#main" { "Skip to content" }
                 header class="border-bottom bg-white" {
-                    nav class="container py-3" aria-label="Main navigation" {
-                        a class="navbar-brand fw-semibold" href="/" { "Jobtowel" }
+                    nav class="container d-flex align-items-center gap-4 py-3" aria-label="Main navigation" {
+                        a class="navbar-brand fw-semibold m-0" href="/" { "JobTowel" }
+                        @if let Some(user) = user {
+                            a class=(if title == "Dashboard" { "btn btn-primary btn-sm" } else { "btn btn-outline-primary btn-sm" }) href="/dashboard" aria-current=[(title == "Dashboard").then_some("page")] { "Home" }
+                            details class="profile-menu ms-auto" {
+                                summary class="profile-trigger" aria-label=(format!("Profile menu for {}", user.name)) {
+                                    span class="fw-semibold" aria-hidden="true" { (initials(&user.name)) }
+                                }
+                                div class="profile-popover bg-white rounded-3 p-2" {
+                                    a class="dropdown-item rounded-2" href="/account" { "Account" }
+                                    form method="post" action="/logout" {
+                                        input type="hidden" name="csrf" value=(csrf);
+                                        button class="dropdown-item rounded-2" type="submit" { "Log Out" }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 main id="main" class="container py-4 py-md-5" { (content) }
-                footer class="container pb-4 small text-body-secondary" { "A place to share your thoughts." }
             }
         }
     }

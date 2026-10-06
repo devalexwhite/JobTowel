@@ -7,6 +7,8 @@ use maud::html;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
+    #[error("authentication operation failed")]
+    Authentication,
     #[error("database operation failed")]
     Database(#[from] sqlx::Error),
 }

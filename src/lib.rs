@@ -9,4 +9,5 @@ pub mod views;
 #[derive(Clone)]
 pub struct AppState {
     pub pool: sqlx::SqlitePool,
+    pub session_cookie_secure: bool,
 }

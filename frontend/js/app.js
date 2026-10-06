@@ -13,18 +13,40 @@ htmx.config.selfRequestsOnly = true;
 htmx.config.allowEval = false;
 htmx.config.allowScriptTags = false;
 
-// The server replaces the form, resetting it only after a successful write.
-document.addEventListener('htmx:afterSwap', event => {
-  if (event.detail.target.id === 'comments-panel') {
-    const message = document.getElementById('request-error');
-    if (message) { message.replaceChildren(); message.className = ''; }
-    document.getElementById('comment-body')?.focus({ preventScroll: true });
-  }
-});
 document.addEventListener('htmx:sendError', () => {
   const message = document.getElementById('request-error');
   if (message) {
     message.className = 'alert alert-danger';
-    message.textContent = 'Connection lost. Check your connection and try posting again.';
+    message.textContent = 'Connection lost. Check your connection and try again.';
+  }
+});
+
+// Native details keeps the profile menu usable without JavaScript.
+document.addEventListener('click', event => {
+  document.querySelectorAll('.profile-menu[open]').forEach(menu => {
+    if (!menu.contains(event.target)) menu.removeAttribute('open');
+  });
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    document.querySelectorAll('.profile-menu[open]').forEach(menu => {
+      menu.removeAttribute('open');
+      menu.querySelector('summary').focus();
+    });
+  }
+});
+document.addEventListener('htmx:afterSwap', event => {
+  if (event.detail.target.id === 'auth-form') {
+    document.getElementById('request-error')?.replaceChildren();
+    document.querySelector('#auth-form [data-validation-error]')?.focus();
+  }
+});
+document.addEventListener('htmx:responseError', event => {
+  if (event.detail.xhr.status === 403 && event.detail.elt.closest('#auth-form')) {
+    const region = document.getElementById('request-error');
+    if (region) {
+      region.className = 'alert alert-danger';
+      region.textContent = 'Your form expired. Reload the page and try again.';
+    }
   }
 });

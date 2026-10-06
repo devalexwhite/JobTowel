@@ -42,12 +42,13 @@ Keep SQL out of controllers and views, HTTP response decisions out of models, an
 - Use Axum `State<AppState>` for shared resources and typed extractors for request input. Body-consuming extractors such as `Form` belong last in handler arguments.
 - Render complete pages through `views::layout::page`; reuse view functions for fragments.
 - Support normal browser forms alongside HTMX. Successful non-HTMX POSTs use post/redirect/get with a 303 redirect.
-- The comment example uses `GET /` and `POST /comments`. HTMX requests return `#comments-panel`, which contains the form and all comments in newest-first order, and replace it with `outerHTML`.
-- Validate input on the server before writing. Preserve the draft and return 422 for validation errors. Clear the form only after a successful write.
+- Authentication and account forms use `#auth-form` with HTMX `outerHTML` replacement for validation errors and `HX-Redirect` after successful writes.
+- Validate input on the server before writing. Preserve non-password drafts and return 422 for validation errors. Never repopulate password fields.
 - Keep HTMX response handling in `frontend/js/app.js` consistent with server status codes and fragment targets. Internal failures use the separate `#request-error` region so a draft survives.
 - Use Maud's escaped interpolation for user content. Never use `PreEscaped` for untrusted input.
 - Follow conventional Bootstrap styling: responsive layouts, visible labels and keyboard focus, inline errors, and accessible loading, empty, and success states.
 - Serve Bootstrap and HTMX from the local npm build. Avoid CDN dependencies and inline script handlers.
+- Interactive experiences should use HTMX with no-js fallbacks.
 
 ## Database and migration conventions
 
@@ -55,7 +56,7 @@ Keep SQL out of controllers and views, HTTP response decisions out of models, an
 - Bind SQL parameters. Use typed `query_as` and `FromRow` for records; the current queries compile without a live database. Validate SQL through integration tests against migrations.
 - Accept validated domain input for writes. Use transactions when multiple dependent writes must succeed together.
 - Add schema changes as uniquely named, increasing timestamp migrations: `migrations/<timestamp>_<description>.sql`.
-- Never edit an applied migration. Use a new forward migration for corrections.
+- Never edit an applied migration. Use a new forward migration for corrections. The explicitly retired architecture-demo version `20261006000000` is allowed to be absent; preserve checks for every other missing version and for active migration checksums.
 - Migrations are embedded by `sqlx::migrate!`; `build.rs` watches the migration directory. Both server startup and the migration binary use `db::migrate`.
 - Tests must use temporary databases, never the developer's `jobtowel.db` or another persistent database.
 
@@ -78,7 +79,7 @@ Preserve an existing `.env`; copy the example only when the file is absent. The 
 - `cargo run --bin migrate`: apply pending migrations without serving HTTP.
 - `cargo build --release`: compile the deployment executable; ship `static/assets` alongside it.
 
-Configuration uses `DATABASE_URL`, `BIND_ADDR`, `ASSET_DIR`, and `RUST_LOG`. Keep example configuration in `.env.example`; do not commit secrets, `.env`, database files, `node_modules`, `target`, or generated assets. Commit `Cargo.lock` and `package-lock.json` when dependencies change.
+Configuration uses `DATABASE_URL`, `BIND_ADDR`, `ASSET_DIR`, `RUST_LOG`, and `SESSION_COOKIE_SECURE`. Keep example configuration in `.env.example`; do not commit secrets, `.env`, database files, `node_modules`, `target`, or generated assets. Commit `Cargo.lock` and `package-lock.json` when dependencies change.
 
 ## Verification
 
@@ -96,8 +97,8 @@ Extend integration coverage for meaningful behavior changes, including persisten
 
 ## Security and operational boundaries
 
-- Log internal errors with tracing and keep database details out of HTTP responses. Avoid logging secrets or comment bodies.
-- Preserve request body limits, same-origin POST protection, and response security headers. If cookie authentication is added, introduce session-bound CSRF tokens.
+- Log internal errors with tracing and keep database details out of HTTP responses. Avoid logging passwords, session tokens, or form contents.
+- Preserve request body limits, same-origin POST protection, and response security headers. Authentication forms use session-bound CSRF tokens, hashed database-backed session tokens, and Argon2id passwords. Preserve session rotation and password-change revocation. Set `SESSION_COOKIE_SECURE=true` for HTTPS deployments.
 - Preserve JavaScript-free form submission and graceful shutdown for Ctrl-C and SIGTERM.
-- The demo intentionally lists all comments. Pagination, authentication, moderation, and rate limiting remain future application requirements, not existing capabilities.
+- Rate limiting remains a future application requirement, not an existing capability.
 - Update the README and this guidance when architectural boundaries, configuration, or development commands change.
