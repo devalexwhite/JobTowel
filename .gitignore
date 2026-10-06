@@ -1,0 +1,8 @@
+/target
+/node_modules
+/static/assets/*
+!/static/assets/.gitkeep
+.env
+*.db
+*.db-shm
+*.db-wal

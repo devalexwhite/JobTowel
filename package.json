@@ -1,0 +1,19 @@
+{
+  "name": "jobtowel-assets",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-assets.mjs",
+    "dev": "node scripts/build-assets.mjs --watch"
+  },
+  "dependencies": {
+    "bootstrap": "5.3.8",
+    "htmx.org": "2.0.8"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "sass": "^1.93.0"
+  },
+  "engines": { "node": ">=22" }
+}
