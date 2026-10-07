@@ -96,6 +96,12 @@ Build assets with `npm ci && npm run build`, then compile with `cargo build --re
 
 Add rate limits as the application grows. Browser cross-origin POSTs are rejected using Origin and Fetch Metadata; origin-less API clients are allowed. Authentication forms validate session-bound CSRF tokens. Behind a reverse proxy, preserve the original Host header. Run TLS at the reverse proxy and back up SQLite using its backup API or a consistent snapshot including WAL state.
 
+## Applied applications
+
+Signed-in users can open `/applied` to view their recorded roles. Bootstrap Table adds sorting and per-column text filters for Role Title and Company, with its JavaScript, jQuery dependency, and styles bundled locally through npm. Without JavaScript the server-rendered table and actions remain available. `/applied/new` creates an application; `/applied/{id}/edit` reuses that form. Role Title and Company are required; Posting URL and Role Description are optional. `/applied/{id}/delete` provides a confirmation page for normal browsers, while the table confirms and deletes through HTMX. All role reads and writes are scoped to the signed-in user and writes require the session CSRF token. Creation and update timestamps track the record itself. The roles schema is installed by the shared migration runner on startup.
+
 ## Reference documentation
 
 [Axum](https://docs.rs/axum/latest/axum/), [SQLx migrations](https://docs.rs/sqlx/latest/sqlx/macro.migrate.html), [Maud](https://maud.lambda.xyz/), [Bootstrap Sass](https://getbootstrap.com/docs/5.3/customize/sass/), [HTMX](https://htmx.org/docs/).
+
+Application View pages show an event timeline, newest first, including future appointments. Every new application automatically receives an Applied event; existing applications are backfilled using their creation timestamps. Events support create, view, edit, and confirmed deletion, with notes and up to 20 people entered in structured rows (required first name; optional last name, email, phone, and notes). People rows can be added and removed through HTMX or ordinary form submissions without saving the event or losing drafts. Existing contact names remain intact in First name, with legacy job titles preserved in person notes. Event dates and times use UTC. Deleting an application also deletes its events and people.

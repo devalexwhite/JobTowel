@@ -26,6 +26,7 @@ await buildStyles();
 const options = {
   entryPoints: [path.join(root, 'frontend/js/app.js')],
   bundle: true,
+  inject: [path.join(root, 'frontend/js/jquery.js')],
   minify: !watching,
   sourcemap: watching,
   outfile: path.join(output, 'app.js'),

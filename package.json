@@ -9,11 +9,15 @@
   },
   "dependencies": {
     "bootstrap": "5.3.8",
-    "htmx.org": "2.0.8"
+    "bootstrap-table": "^1.27.3",
+    "htmx.org": "2.0.8",
+    "jquery": "^4.0.0"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
     "sass": "^1.93.0"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

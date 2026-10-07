@@ -1,5 +1,7 @@
 import htmx from 'htmx.org';
 import 'bootstrap';
+import 'bootstrap-table/src/bootstrap-table.js';
+import 'bootstrap-table/src/extensions/filter-control/bootstrap-table-filter-control.js';
 
 // HTMX keeps server-rendered validation and recoverable database errors visible.
 htmx.config.responseHandling = [
@@ -36,17 +38,55 @@ document.addEventListener('keydown', event => {
   }
 });
 document.addEventListener('htmx:afterSwap', event => {
-  if (event.detail.target.id === 'auth-form') {
+  if (['auth-form', 'role-form', 'event-form'].includes(event.detail.target.id)) {
     document.getElementById('request-error')?.replaceChildren();
-    document.querySelector('#auth-form [data-validation-error]')?.focus();
+    document.getElementById(event.detail.target.id)?.querySelector('[data-validation-error]')?.focus();
   }
 });
 document.addEventListener('htmx:responseError', event => {
-  if (event.detail.xhr.status === 403 && event.detail.elt.closest('#auth-form')) {
+  if (event.detail.xhr.status === 403 && event.detail.elt.closest('form, #applied-roles')) {
     const region = document.getElementById('request-error');
     if (region) {
       region.className = 'alert alert-danger';
       region.textContent = 'Your form expired. Reload the page and try again.';
     }
+  }
+});
+
+// Bootstrap Table rebuilds tbody when sorting/filtering: reconnect HTMX actions.
+function initializeAppliedTable() {
+  const table = document.querySelector('[data-applied-table]');
+  if (!table || $(table).data('bootstrap.table')) return;
+  $(table).bootstrapTable({
+    onPostBody() {
+      htmx.process(table.querySelector('tbody'));
+    },
+    onPostHeader() {
+      table.querySelectorAll('th[data-field="role_title"] .th-inner, th[data-field="company"] .th-inner').forEach(heading => {
+        heading.tabIndex = 0;
+        heading.setAttribute('role', 'button');
+        heading.setAttribute('aria-label', `Sort by ${heading.textContent.trim()}`);
+      });
+      table.querySelectorAll('.filter-control input').forEach(input => {
+        const label = input.closest('th').dataset.field === 'role_title' ? 'Role Title' : 'Company';
+        input.setAttribute('aria-label', `Filter ${label}`);
+      });
+    },
+  });
+}
+htmx.onLoad(initializeAppliedTable);
+document.addEventListener('htmx:beforeSwap', event => {
+  if (event.detail.target.id === 'applied-roles' && event.detail.shouldSwap) {
+    const table = document.querySelector('[data-applied-table]');
+    if (table && $(table).data('bootstrap.table')) $(table).bootstrapTable('destroy');
+  }
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const heading = event.target.closest('[data-applied-table] .th-inner[role="button"]');
+  if (heading) {
+    event.preventDefault();
+    heading.click();
   }
 });

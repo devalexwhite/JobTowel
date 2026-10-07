@@ -27,6 +27,32 @@ pub fn router(state: AppState, asset_dir: impl AsRef<Path>) -> Router {
             get(controllers::auth::account_page).post(controllers::auth::account),
         )
         .route("/logout", post(controllers::auth::logout))
+        .route("/applied", get(controllers::applied::index))
+        .route(
+            "/applied/new",
+            get(controllers::applied::new_page).post(controllers::applied::create),
+        )
+        .route(
+            "/applied/{id}/edit",
+            get(controllers::applied::edit_page).post(controllers::applied::update),
+        )
+        .route(
+            "/applied/{id}/delete",
+            get(controllers::applied::delete_page).post(controllers::applied::delete),
+        )
+        .route("/applied/{role}", get(controllers::events::view))
+        .route(
+            "/applied/{role}/events/new",
+            get(controllers::events::new_page).post(controllers::events::create),
+        )
+        .route(
+            "/applied/{role}/events/{event}/edit",
+            get(controllers::events::edit_page).post(controllers::events::update),
+        )
+        .route(
+            "/applied/{role}/events/{event}/delete",
+            get(controllers::events::delete_page).post(controllers::events::delete),
+        )
         .nest_service("/assets", ServeDir::new(asset_dir))
         .fallback(|| async {
             (

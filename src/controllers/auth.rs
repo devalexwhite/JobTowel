@@ -31,10 +31,10 @@ fn cookie(state: &AppState, token: &str, age: u32) -> String {
     };
     format!("jobtowel_session={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={age}{secure}")
 }
-fn htmx(headers: &HeaderMap) -> bool {
+pub(super) fn htmx(headers: &HeaderMap) -> bool {
     headers.get("HX-Request").is_some_and(|v| v == "true")
 }
-fn redirect(headers: &HeaderMap, path: &str) -> Response {
+pub(super) fn redirect(headers: &HeaderMap, path: &str) -> Response {
     if htmx(headers) {
         (StatusCode::OK, [("HX-Redirect", path)]).into_response()
     } else {
@@ -44,7 +44,7 @@ fn redirect(headers: &HeaderMap, path: &str) -> Response {
 async fn session(state: &AppState, headers: &HeaderMap) -> Result<Option<Session>, AppError> {
     Ok(Session::find(&state.pool, cookie_token(headers)).await?)
 }
-async fn signed_in(
+pub(super) async fn signed_in(
     state: &AppState,
     headers: &HeaderMap,
 ) -> Result<Option<(Session, User)>, AppError> {
@@ -56,7 +56,7 @@ async fn signed_in(
     }
     Ok(None)
 }
-fn forbidden() -> Response {
+pub(super) fn forbidden() -> Response {
     (
         StatusCode::FORBIDDEN,
         "Your form expired. Reload the page and try again.",

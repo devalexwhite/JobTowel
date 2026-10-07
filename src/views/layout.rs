@@ -32,10 +32,11 @@ pub fn shell(title: &str, content: Markup, user: Option<&User>, csrf: &str) -> M
             body {
                 a class="visually-hidden-focusable" href="#main" { "Skip to content" }
                 header class="border-bottom bg-white" {
-                    nav class="container d-flex align-items-center gap-4 py-3" aria-label="Main navigation" {
+                    nav class="container d-flex align-items-center gap-2 gap-md-4 py-3" aria-label="Main navigation" {
                         a class="navbar-brand fw-semibold m-0" href="/" { "JobTowel" }
                         @if let Some(user) = user {
                             a class=(if title == "Dashboard" { "btn btn-primary btn-sm" } else { "btn btn-outline-primary btn-sm" }) href="/dashboard" aria-current=[(title == "Dashboard").then_some("page")] { "Home" }
+                            a class=(if title == "Applied" { "btn btn-primary btn-sm" } else { "btn btn-outline-primary btn-sm" }) href="/applied" aria-current=[(title == "Applied").then_some("page")] { "Applied" }
                             details class="profile-menu ms-auto" {
                                 summary class="profile-trigger" aria-label=(format!("Profile menu for {}", user.name)) {
                                     span class="fw-semibold" aria-hidden="true" { (initials(&user.name)) }

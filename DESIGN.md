@@ -5,3 +5,5 @@ The user chose conventional Bootstrap styling. Use Bootstrap 5.3 variables and c
 Server and network errors appear near the form without clearing draft text.
 
 Auth forms use inline server validation returned by HTMX, preserve non-password drafts, and leave passwords blank after errors. Account updates show a success message after redirect.
+
+Applied uses a responsive Bootstrap Table with sortable Role Title and Company columns and labeled text filters for each, a Last Event column showing the latest event title by event date with a smaller relative-date subtitle in UTC (or “No events”), alongside Edit/Delete actions. A Record new application button opens the shared create/edit form, capped at 42rem. Role forms preserve every draft field on HTMX validation errors. Deletion uses native confirmation with HTMX table replacement and a separate confirmation page as the JavaScript-free fallback. Applied navigation sits beside Home.
