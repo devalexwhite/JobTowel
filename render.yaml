@@ -6,7 +6,7 @@ services:
     numInstances: 1
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /login
+    healthCheckPath: /assets/app.css
     envVars:
       - key: DATABASE_URL
         value: sqlite:///var/data/jobtowel.db
