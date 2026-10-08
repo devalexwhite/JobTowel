@@ -13,11 +13,17 @@ pub fn page(user: &User, csrf: &str, summary: &Summary) -> Markup {
     layout::shell(
         "Dashboard",
         html! {
-            h1 class="h2" { "Welcome, " (&user.name) "." }
-            div class="row g-3" {
+            div class="page-heading" {
+                div {
+                    h1 class="h2" { "Welcome, " (&user.name) "." }
+                    p class="text-body-secondary mb-0" { "A little progress, one application at a time." }
+                }
+                a class="btn btn-primary" href="/applied/new" { (layout::icon("plus")) "Record application" }
+            }
+            div class="row g-4 dashboard-summary" {
                 div class=(column) {
-                    section class="card h-100" aria-labelledby="applications-title" {
-                        div class="card-body" {
+                    section class="summary-panel h-100" aria-labelledby="applications-title" {
+                        div class="summary-body" {
                             h2 id="applications-title" class="h5 card-title" { "Active applications" }
                             p id="application-count" class="fs-2 fw-semibold mb-2" { (summary.application_count) }
                             a href="/applied" { "View applications" }
@@ -25,8 +31,8 @@ pub fn page(user: &User, csrf: &str, summary: &Summary) -> Markup {
                     }
                 }
                 div class=(column) {
-                    section class="card h-100" aria-labelledby="movement-title" {
-                        div class="card-body text-break" {
+                    section class="summary-panel h-100" aria-labelledby="movement-title" {
+                        div class="summary-body text-break" {
                             h2 id="movement-title" class="h5 card-title" { "Latest movement" }
                             @if let Some(event) = &summary.latest_movement {
                                 p class="fw-semibold mb-1" { (&event.event_title) }
@@ -40,8 +46,8 @@ pub fn page(user: &User, csrf: &str, summary: &Summary) -> Markup {
                 }
                 @if let Some(event) = &summary.upcoming_event {
                     div class=(column) {
-                        section class="card h-100" aria-labelledby="upcoming-title" {
-                            div class="card-body text-break" {
+                        section class="summary-panel h-100" aria-labelledby="upcoming-title" {
+                            div class="summary-body text-break" {
                                 h2 id="upcoming-title" class="h5 card-title" { "Next upcoming event" }
                                 p class="fw-semibold mb-1" { (&event.event_title) }
                                 p class="mb-2" { a href=(format!("/applied/{}", event.role_id)) { (&event.role_title) } }
@@ -53,14 +59,14 @@ pub fn page(user: &User, csrf: &str, summary: &Summary) -> Markup {
                     }
                 }
                 div class="col-12" {
-                    section class="card" aria-labelledby="milestones-title" {
+                    section class="milestones" aria-labelledby="milestones-title" {
                         div class="card-body" {
                             h2 id="milestones-title" class="h5 card-title" { "Your milestones" }
                             p class="text-body-secondary mb-0" { "Your events over the last 14 days, including today." }
                         }
                         ol class="list-group list-group-flush list-unstyled mb-0" {
                             @for day in &summary.milestone_days {
-                                li class="list-group-item px-3 py-3" {
+                                li class=(if day.events.is_empty() { "list-group-item milestone-day milestone-quiet" } else { "list-group-item milestone-day" }) {
                                     div class="row g-2" {
                                         div class="col-12 col-md-3" {
                                             h3 class="h6 mb-0" {

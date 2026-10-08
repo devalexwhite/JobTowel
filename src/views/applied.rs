@@ -31,10 +31,15 @@ pub fn table(
 
             @if deleted { div class="alert alert-success" role="status" { "Application deleted." } }
             @if roles.is_empty() {
-                p class="text-body-secondary py-4" { "No applications match this status. Change the filter or record a new application." }
+                div class="empty-state" {
+                    (layout::icon("applications"))
+                    h2 class="h5" { "Room for your next opportunity" }
+                    p class="text-body-secondary" { "No applications match this status. Change the filter or record a new application." }
+                    a class="btn btn-outline-primary" href="/applied/new" { "Record new application" }
+                }
             } @else {
                 div class="table-responsive" {
-                    table id="applications-table" data-height="800" class="table align-middle" data-applied-table data-filter-control="true" {
+                    table id="applications-table" class="table align-middle" data-applied-table data-filter-control="true" {
                         caption class="visually-hidden" { "Your recorded applications" }
                         thead { tr { th scope="col" data-field="role_title" data-sortable="true" data-filter-control="input" data-filter-control-placeholder="Filter role" { "Role" } th scope="col" data-field="company" data-sortable="true" data-filter-control="input" data-filter-control-placeholder="Filter companies" { "Company" } th scope="col" data-field="last_event_title" { "Movement" } th scope="col" data-field="status" { "Status" } th scope="col" data-field="actions" data-searchable="false" { span class="visually-hidden" { "Actions" } } } }
                         tbody {
@@ -79,8 +84,13 @@ pub fn index(user: &User, csrf: &str, roles: &[AppliedRole], status: StatusFilte
     layout::shell(
         "Applied",
         html! {
-            h1 class="h2 mb-4" { "Applied" }
-            a class="btn btn-primary mb-4" href="/applied/new" { "Record new application" }
+            div class="page-heading" {
+                div {
+                    h1 class="h2" { "Applied" }
+                    p class="text-body-secondary mb-0" { "Every opportunity, and what comes next." }
+                }
+                a class="btn btn-primary" href="/applied/new" { (layout::icon("plus")) "Record new application" }
+            }
             div id="request-error" role="alert" {}
             (table(roles, csrf, false, status, user.timezone()))
         },

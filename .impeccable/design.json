@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-08T20:41:44.459799+00:00",
+  "title": "Design System: Jobtowel",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Warm coral"
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Warm cream"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Quiet warm surface"
+      },
+      "selected": {
+        "role": "primary",
+        "displayName": "Pale coral selection"
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Page title",
+        "purpose": "Main page headings; reduced to 1.55rem on phones."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default application text."
+      },
+      "compact": {
+        "displayName": "Compact supporting text",
+        "purpose": "Milestone dates, timeline dates, and table headings."
+      }
+    },
+    "shadows": [
+      {
+        "name": "popover",
+        "value": "0 8px 28px rgba(48, 45, 42, .14)",
+        "purpose": "Profile menus and person contact cards."
+      }
+    ],
+    "motion": [
+      {
+        "name": "interaction-ease",
+        "value": "cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "Button press, avatar lift, menu reveal, and saved feedback."
+      },
+      {
+        "name": "state-transition",
+        "value": "180ms",
+        "purpose": "Button colors and transforms, field borders and shadows, avatar and menu feedback."
+      },
+      {
+        "name": "fragment-feedback",
+        "value": "240ms",
+        "purpose": "Successful fragment background acknowledgment."
+      },
+      {
+        "name": "saved-feedback",
+        "value": "320ms",
+        "purpose": "Success alert background acknowledgment."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "animation: none !important; transition: none !important; scroll-behavior: auto !important",
+        "purpose": "Applied to all elements and pseudo-elements when prefers-reduced-motion is reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-max",
+        "value": "767.98px"
+      },
+      {
+        "name": "compact-desktop-max",
+        "value": "1199.98px"
+      },
+      {
+        "name": "wide-desktop-min",
+        "value": "1600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary recording or save action.",
+      "html": "<button class=\"ds-primary\">Record application</button>",
+      "css": ".ds-primary{background:var(--bs-primary,#b94332);color:#fff;border:1px solid var(--bs-primary,#b94332);border-radius:var(--bs-border-radius,.6rem);padding:.65rem 1rem;font:600 .9375rem system-ui;cursor:pointer;transition:background-color 180ms ease,transform 180ms var(--interaction-ease,cubic-bezier(.16,1,.3,1))}.ds-primary:hover{background:rgb(61.6666666667%,22.3333333333%,16.6666666667%);border-color:rgb(58.0392156863%,21.0196078431%,15.6862745098%)}.ds-primary:focus-visible{outline:3px solid var(--bs-primary,#b94332);outline-offset:3px}.ds-primary:active{transform:scale(.97)}@media(prefers-reduced-motion:reduce){.ds-primary,.ds-outline,.ds-input,.ds-avatar{transition:none!important;transform:none!important}}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-outline-primary",
+      "description": "Warm outlined secondary action.",
+      "html": "<button class=\"ds-outline\">Apply filter</button>",
+      "css": ".ds-outline{background:transparent;color:#8c372b;border:1px solid #d8d1c9;border-radius:var(--bs-border-radius,.6rem);padding:.65rem 1rem;font:600 .9375rem system-ui;cursor:pointer;transition:background-color 180ms ease,transform 180ms var(--interaction-ease,cubic-bezier(.16,1,.3,1))}.ds-outline:hover{background:var(--workspace-selected,#f9e9e3);border-color:#cbb2a6}.ds-outline:focus-visible{outline:3px solid var(--bs-primary,#b94332);outline-offset:3px}.ds-outline:active{transform:scale(.97)}@media(prefers-reduced-motion:reduce){.ds-primary,.ds-outline,.ds-input,.ds-avatar{transition:none!important;transform:none!important}}"
+    },
+    {
+      "name": "Native text field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Visible label with warm native input and focus treatment.",
+      "html": "<label class=\"ds-label\" for=\"ds-role\">Role</label><input class=\"ds-input\" id=\"ds-role\" placeholder=\"Role title\">",
+      "css": ".ds-label{display:block;font:600 .875rem system-ui;margin-bottom:.45rem;color:var(--bs-body-color,#302d2a)}.ds-input{background:var(--bs-body-bg,#fffefa);color:var(--bs-body-color,#302d2a);padding:.7rem .85rem;border:1px solid #d8d1c9;border-radius:var(--bs-border-radius,.6rem);font:.9375rem system-ui;caret-color:var(--bs-primary,#b94332);transition:border-color 180ms ease,box-shadow 180ms ease}.ds-input::placeholder{color:#78716a}.ds-input:hover{border-color:#a79b90}.ds-input:focus{outline:0;border-color:rgb(86.2745098039%,63.137254902%,59.8039215686%);box-shadow:0 0 0 .25rem rgba(185,67,50,.2)}@media(prefers-reduced-motion:reduce){.ds-primary,.ds-outline,.ds-input,.ds-avatar{transition:none!important;transform:none!important}}"
+    },
+    {
+      "name": "Workspace navigation",
+      "kind": "nav",
+      "refersTo": "navigation-link",
+      "description": "Warm navigation with a clear selected destination.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Preview navigation\"><a class=\"ds-link\" href=\"#home\" aria-current=\"page\">Home</a><a class=\"ds-link\" href=\"#applied\">Applied</a></nav>",
+      "css": ".ds-nav{display:grid;gap:.3rem;background:var(--workspace-surface,#f7f5f1);padding:1rem}.ds-link{display:flex;padding:.75rem .85rem;border-radius:.6rem;color:var(--bs-body-color,#302d2a);font:500 .9375rem system-ui;text-decoration:none}.ds-link:hover{background:#eeeae4}.ds-link[aria-current=page]{background:var(--workspace-selected,#f9e9e3);color:#a43b2c;font-weight:650}.ds-link:focus-visible{outline:3px solid var(--bs-primary,#b94332);outline-offset:3px}"
+    },
+    {
+      "name": "Summary panel",
+      "kind": "card",
+      "refersTo": "summary-panel",
+      "description": "Flat tonal summary panel for application progress.",
+      "html": "<section class=\"ds-panel\"><h2 class=\"ds-panel-title\">Active applications</h2><p class=\"ds-count\">12</p><a class=\"ds-panel-link\" href=\"#applied\">View applications</a></section>",
+      "css": ".ds-panel{background:var(--workspace-surface,#f7f5f1);border-radius:.85rem;padding:1.5rem;color:var(--bs-body-color,#302d2a);font:.9375rem system-ui}.ds-panel-title{color:var(--bs-secondary-color,#716b65);font-size:.875rem;font-weight:650;margin:0 0 1rem}.ds-count{font-size:2rem;font-weight:600;font-variant-numeric:tabular-nums;margin:0 0 .5rem}.ds-panel-link{color:var(--bs-primary,#b94332);font-weight:500;text-decoration:none}.ds-panel-link:hover{text-decoration:underline}.ds-panel-link:focus-visible{outline:3px solid var(--bs-primary,#b94332);outline-offset:3px}"
+    },
+    {
+      "name": "Person avatar",
+      "kind": "custom",
+      "refersTo": "person-avatar",
+      "description": "Circular initials control for the native contact menu.",
+      "html": "<details class=\"ds-person\"><summary class=\"ds-avatar\" aria-label=\"Contact for Jane Smith\">JS</summary><div class=\"ds-contact\">Jane Smith</div></details>",
+      "css": ".ds-person{position:relative;display:inline-block}.ds-avatar{display:flex;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;border:0;border-radius:50%;background:#eee8df;color:#665442;font:600 .8125rem system-ui;cursor:pointer;list-style:none;transition:transform 180ms var(--interaction-ease,cubic-bezier(.16,1,.3,1)),background-color 180ms ease}.ds-avatar::-webkit-details-marker{display:none}.ds-avatar:hover,.ds-person[open] .ds-avatar{background:#e6dacc;transform:translateY(-2px)}.ds-avatar:focus-visible{outline:3px solid var(--bs-primary,#b94332);outline-offset:3px}.ds-contact{margin-top:.5rem;padding:1rem;background:var(--bs-body-bg,#fffefa);color:var(--bs-body-color,#302d2a);border-radius:.6rem;box-shadow:var(--popover-shadow,0 8px 28px rgba(48,45,42,.14));font:.9375rem system-ui}@media(prefers-reduced-motion:reduce){.ds-primary,.ds-outline,.ds-input,.ds-avatar{transition:none!important;transform:none!important}}"
+    }
+  ],
+  "narrative": {
+    "overview": "A quiet, warm workspace for a job search. Cream surfaces, a coral primary action, system typography, and small interactions acknowledge progress. Desktop sidebar navigation becomes a compact sticky header on phones; summary panels use tonal surfaces, milestone days use light dividers, and application rows stack into readable mobile records.",
+    "keyCharacteristics": [
+      "Warm light surfaces with restrained coral emphasis.",
+      "Native controls, visible labels, and clear keyboard focus.",
+      "Compact supporting information with room around primary actions.",
+      "Brief state feedback with reduced-motion support."
+    ],
+    "rules": [],
+    "dos": [
+      "Do preserve the responsive workspace navigation.",
+      "Do keep native controls, visible labels, normal form fallbacks, and server validation.",
+      "Do keep feedback brief and honor reduced-motion preferences."
+    ],
+    "donts": [
+      "Don't require JavaScript for basic form submission or native details menus.",
+      "Don't introduce remote font or icon dependencies.",
+      "Don't use motion or color as the only indication of state or an error."
+    ]
+  }
+}

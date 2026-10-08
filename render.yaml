@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: jobtowel
+    runtime: docker
+    plan: starter
+    numInstances: 1
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /login
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///var/data/jobtowel.db
+      - key: ASSET_DIR
+        value: /app/static/assets
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: RUST_LOG
+        value: jobtowel=info,tower_http=info
+    disk:
+      name: jobtowel-data
+      mountPath: /var/data
+      sizeGB: 1

@@ -85,6 +85,7 @@ Preserve an existing `.env`; copy the example only when the file is absent. The 
 - `cargo run`: run the application; restart after Rust changes.
 - `cargo run --bin migrate`: apply pending migrations without serving HTTP.
 - `cargo build --release`: compile the deployment executable; ship `static/assets` alongside it.
+- `docker build -t jobtowel .`: build the deployment image, including frontend assets and both Rust binaries. See README for local container and Render deployment instructions. `render.yaml` configures one Docker web service with a persistent SQLite disk at `/var/data`; migrations run at startup, not in a pre-deploy command. The container entrypoint derives `BIND_ADDR` from Render's `PORT` unless explicitly overridden.
 
 Configuration uses `DATABASE_URL`, `BIND_ADDR`, `ASSET_DIR`, `RUST_LOG`, and `SESSION_COOKIE_SECURE`. Keep example configuration in `.env.example`; do not commit secrets, `.env`, database files, `node_modules`, `target`, or generated assets. Commit `Cargo.lock` and `package-lock.json` when dependencies change.
 

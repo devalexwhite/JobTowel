@@ -96,6 +96,55 @@ Build assets with `npm ci && npm run build`, then compile with `cargo build --re
 
 Add rate limits as the application grows. Browser cross-origin POSTs are rejected using Origin and Fetch Metadata; origin-less API clients are allowed. Authentication forms validate session-bound CSRF tokens. Behind a reverse proxy, preserve the original Host header. Run TLS at the reverse proxy and back up SQLite using its backup API or a consistent snapshot including WAL state.
 
+### Docker
+
+The multi-stage `Dockerfile` builds local frontend assets with Node.js 22 and compiles both Rust binaries with the stable Rust toolchain and `Cargo.lock`. The Debian runtime contains the binaries, assets, and SQLite CLI for backups; migrations are embedded in the binaries. `.dockerignore` excludes local secrets, databases, and build output.
+
+Build and run locally with a named volume so data survives container replacement:
+
+```sh
+docker build -t jobtowel .
+docker volume create jobtowel-data
+docker run --rm --name jobtowel -p 127.0.0.1:3000:10000 \
+  --mount type=volume,source=jobtowel-data,target=/var/data \
+  -e SESSION_COOKIE_SECURE=false jobtowel
+```
+
+Open http://127.0.0.1:3000. Stop with `docker stop jobtowel`. Repeating the run command reuses the database. Keep `SESSION_COOKIE_SECURE=true` (the image default) when serving through HTTPS.
+
+The container defaults to `DATABASE_URL=sqlite:///var/data/jobtowel.db` and `ASSET_DIR=/app/static/assets`. Its entrypoint sets `BIND_ADDR` to `0.0.0.0:$PORT`, with port `10000` as the fallback; an explicit `BIND_ADDR` overrides this. Changing the port also requires updating the Docker port mapping. Mount persistent storage at `/var/data`; other database locations need an existing, writable parent directory. Runtime environment variables override image defaults. The server applies migrations automatically before listening and receives SIGTERM directly for graceful shutdown.
+
+### Deploy on Render
+
+The included `render.yaml` defines a Docker web service on the Starter compute plan with a 1 GB persistent disk at `/var/data`. Review current charges before creating it. SQLite requires this disk to retain accounts, sessions, and application records across restarts and deploys. Persistent disks require a paid service, support a single instance, and cause brief downtime during deploys. See [Render persistent disks](https://render.com/docs/disks).
+
+1. Commit the Dockerfile, `.dockerignore`, `scripts/docker-entrypoint.sh`, `render.yaml`, and application source, including both dependency lockfiles. Push to a GitHub, GitLab, or Bitbucket repository connected to Render.
+2. In the [Render dashboard](https://dashboard.render.com/), choose **New > Blueprint**, select the repository and deployment branch, and use the root `render.yaml`. Review the service, plan, disk, and region before deploying. See [Render Blueprints](https://render.com/docs/infrastructure-as-code).
+3. Render builds the Docker image and starts it with the persistent disk attached. Leave Docker Command and Pre-Deploy Command unset: the image starts `jobtowel`, which migrates the mounted database at startup. Pre-deploy commands cannot access persistent disks. See [Render deploy commands](https://render.com/docs/deploys#pre-deploy-command).
+4. Wait for the service to become healthy. The `/login` health check returns 200 without authentication; the server starts listening only after assets and migrations are ready. Open the service's HTTPS `onrender.com` URL and create an account. Check that signup, login, and saving an application work, then restart the service and confirm the saved data remains.
+
+Render supplies `PORT`; the entrypoint binds to `0.0.0.0` on that port. Keep `BIND_ADDR` unset on Render. Render terminates HTTPS, and the Blueprint enables Secure session cookies. See [Render web service ports](https://render.com/docs/web-services#port-binding).
+
+To configure the service manually instead of using a Blueprint, choose **New > Web Service**, connect the repository, select the **Docker** runtime and a paid plan, and use `./Dockerfile` with the repository root as its build context. Set one instance and `/login` as the health check path. Before using the app, attach a 1 GB disk at `/var/data` and set these environment variables:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | `sqlite:///var/data/jobtowel.db` |
+| `ASSET_DIR` | `/app/static/assets` |
+| `SESSION_COOKIE_SECURE` | `true` |
+| `RUST_LOG` | `jobtowel=info,tower_http=info` |
+
+Subsequent pushes to the connected deployment branch normally trigger a rebuild and deploy. Keep the disk attached and the database path unchanged. Back up SQLite before deploying schema changes. In the running service's Render Shell, the bundled SQLite CLI can make a consistent backup, including committed WAL data:
+
+```sh
+sqlite3 /var/data/jobtowel.db ".backup '/var/data/jobtowel-backup.db'"
+sqlite3 /var/data/jobtowel-backup.db 'PRAGMA integrity_check;'
+```
+
+Copy backups off the service using [Render's file transfer instructions](https://render.com/docs/disks#transferring-files). The example overwrites the same backup file on later runs; use dated filenames when retaining multiple backups. A backup on the same disk does not protect against losing that disk. To restore, stop application writes, replace the database from a verified backup with SQLite's journal files handled consistently, and restart; do not overwrite a live database. An older image may reject migrations introduced by a newer deployment, so coordinate rollbacks with a compatible database backup.
+
+For startup failures, check Render logs for missing assets, migration errors, or an unwritable database directory. If a browser POST returns 403, check that any additional proxy preserves the public Host header. If data disappears after a restart, verify that the disk is mounted at `/var/data` and `DATABASE_URL` points inside it.
+
 ## Applied applications
 
 Signed-in users can open `/applied` to view their recorded roles. Bootstrap Table adds sorting and per-column text filters for Role Title and Company, with its JavaScript, jQuery dependency, and styles bundled locally through npm. Without JavaScript the server-rendered table and actions remain available. `/applied/new` creates an application; `/applied/{id}/edit` reuses that form. Role Title and Company are required; Posting URL and Role Description are optional. `/applied/{id}/delete` provides a confirmation page for normal browsers, while the table confirms and deletes through HTMX. All role reads and writes are scoped to the signed-in user and writes require the session CSRF token. Creation and update timestamps track the record itself. The roles schema is installed by the shared migration runner on startup.

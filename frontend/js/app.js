@@ -194,6 +194,12 @@ document.addEventListener('keydown', event => {
   }
 });
 document.addEventListener('htmx:afterSwap', event => {
+  // A brief tint acknowledges an updated fragment without delaying interaction.
+  if (event.detail.target.id === 'applied-roles' || event.detail.target.id === 'event-form') {
+    const fragment = document.getElementById(event.detail.target.id);
+    if (!fragment?.querySelector('[data-validation-error]')) fragment?.classList.add('fragment-feedback');
+    fragment?.addEventListener('animationend', () => fragment.classList.remove('fragment-feedback'), { once: true });
+  }
   if (['auth-form', 'role-form', 'event-form', 'person-form'].includes(event.detail.target.id)) {
     document.getElementById('request-error')?.replaceChildren();
     document.getElementById(event.detail.target.id)?.querySelector('[data-validation-error]')?.focus();
