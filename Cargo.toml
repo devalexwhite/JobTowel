@@ -5,10 +5,14 @@ edition = "2024"
 default-run = "jobtowel"
 
 [dependencies]
+ammonia = "4"
 argon2 = "0.5"
 axum = "0.8"
+chrono = "0.4"
+chrono-tz = "0.10"
 dotenvy = "0.15"
 maud = { version = "0.27", features = ["axum"] }
+pulldown-cmark = "0.13"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"

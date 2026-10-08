@@ -26,7 +26,12 @@ pub fn router(state: AppState, asset_dir: impl AsRef<Path>) -> Router {
             "/account",
             get(controllers::auth::account_page).post(controllers::auth::account),
         )
+        .route(
+            "/account/timezone",
+            post(controllers::auth::initialize_timezone),
+        )
         .route("/logout", post(controllers::auth::logout))
+        .route("/notes/preview", post(controllers::notes::preview))
         .route("/applied", get(controllers::applied::index))
         .route(
             "/applied/new",
@@ -52,6 +57,10 @@ pub fn router(state: AppState, asset_dir: impl AsRef<Path>) -> Router {
         .route(
             "/applied/{role}/events/{event}/delete",
             get(controllers::events::delete_page).post(controllers::events::delete),
+        )
+        .route(
+            "/applied/{role}/people/{person}/edit",
+            get(controllers::people::edit_page).post(controllers::people::update),
         )
         .nest_service("/assets", ServeDir::new(asset_dir))
         .fallback(|| async {

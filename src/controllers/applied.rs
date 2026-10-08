@@ -2,12 +2,12 @@ use crate::{
     AppState,
     controllers::auth::{forbidden, htmx, redirect, signed_in},
     error::AppError,
-    models::role::{AppliedRole, Input, Role},
+    models::role::{AppliedRole, Input, ListInput, Role},
     views,
 };
 use axum::{
     Form,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
@@ -25,16 +25,22 @@ fn missing() -> Response {
 
 pub async fn index(
     State(state): State<AppState>,
+    Query(filter): Query<ListInput>,
     headers: HeaderMap,
 ) -> Result<Response, AppError> {
     let Some((session, user)) = signed_in(&state, &headers).await? else {
         return Ok(redirect(&headers, "/login"));
     };
-    Ok(views::applied::index(
-        &user,
-        &session.csrf,
-        &AppliedRole::list(&state.pool, user.id).await?,
-    )
+    let roles = AppliedRole::list(&state.pool, user.id)
+        .await?
+        .into_iter()
+        .filter(|application| filter.status.matches(&application.role))
+        .collect::<Vec<_>>();
+    Ok(if htmx(&headers) {
+        views::applied::table(&roles, &session.csrf, false, filter.status, user.timezone())
+    } else {
+        views::applied::index(&user, &session.csrf, &roles, filter.status)
+    }
     .into_response())
 }
 pub async fn new_page(
@@ -138,6 +144,7 @@ pub async fn delete_page(
 }
 pub async fn delete(
     State(state): State<AppState>,
+    Query(filter): Query<ListInput>,
     headers: HeaderMap,
     Path(id): Path<i64>,
     Form(input): Form<Input>,
@@ -157,9 +164,15 @@ pub async fn delete(
             .is_some_and(|v| v == "applied-roles")
     {
         Ok(views::applied::table(
-            &AppliedRole::list(&state.pool, user.id).await?,
+            &AppliedRole::list(&state.pool, user.id)
+                .await?
+                .into_iter()
+                .filter(|application| filter.status.matches(&application.role))
+                .collect::<Vec<_>>(),
             &session.csrf,
             true,
+            filter.status,
+            user.timezone(),
         )
         .into_response())
     } else {

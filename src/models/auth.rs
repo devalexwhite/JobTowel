@@ -16,6 +16,7 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub password_hash: String,
+    pub timezone: Option<String>,
 }
 #[derive(Default, Deserialize)]
 pub struct Input {
@@ -31,8 +32,11 @@ pub struct Input {
     pub current_password: String,
     #[serde(default)]
     pub csrf: String,
+    #[serde(default)]
+    pub timezone: Option<String>,
 }
 pub struct Profile {
+    timezone: Option<String>,
     name: String,
     email: String,
 }
@@ -56,7 +60,12 @@ impl Input {
         {
             return Err("Enter a valid email address.");
         }
+        let timezone = self.timezone.as_deref().filter(|zone| !zone.is_empty());
+        if timezone.is_some_and(|zone| zone.parse::<chrono_tz::Tz>().is_err()) {
+            return Err("Choose a valid timezone from the list.");
+        }
         Ok(Profile {
+            timezone: timezone.map(str::to_owned),
             name: name.into(),
             email: email.to_ascii_lowercase(),
         })
@@ -105,6 +114,26 @@ pub async fn verify(password: String, hash: String) -> Result<bool, AppError> {
     .map_err(|_| AppError::Authentication)?
 }
 impl User {
+    pub fn timezone(&self) -> &str {
+        self.timezone.as_deref().unwrap_or("UTC")
+    }
+
+    pub async fn initialize_timezone(
+        &self,
+        pool: &SqlitePool,
+        timezone: chrono_tz::Tz,
+    ) -> Result<bool, sqlx::Error> {
+        Ok(
+            sqlx::query("UPDATE users SET timezone = ? WHERE id = ? AND timezone IS NULL")
+                .bind(timezone.name())
+                .bind(self.id)
+                .execute(pool)
+                .await?
+                .rows_affected()
+                == 1,
+        )
+    }
+
     pub async fn by_username(
         pool: &SqlitePool,
         username: &str,
@@ -126,8 +155,8 @@ impl User {
         profile: Profile,
         hash: &str,
     ) -> Result<Self, sqlx::Error> {
-        sqlx::query_as("INSERT INTO users (username, name, email, password_hash) VALUES (?, ?, ?, ?) RETURNING *")
-            .bind(username.trim()).bind(profile.name).bind(profile.email).bind(hash).fetch_one(pool).await
+        sqlx::query_as("INSERT INTO users (username, name, email, password_hash, timezone) VALUES (?, ?, ?, ?, ?) RETURNING *")
+            .bind(username.trim()).bind(profile.name).bind(profile.email).bind(hash).bind(profile.timezone).fetch_one(pool).await
     }
     pub async fn update(
         &self,
@@ -136,10 +165,11 @@ impl User {
         hash: Option<String>,
     ) -> Result<(), sqlx::Error> {
         let mut tx = pool.begin().await?;
-        sqlx::query("UPDATE users SET name = ?, email = ?, password_hash = ? WHERE id = ?")
+        sqlx::query("UPDATE users SET name = ?, email = ?, password_hash = ?, timezone = COALESCE(?, timezone) WHERE id = ?")
             .bind(profile.name)
             .bind(profile.email)
             .bind(hash.as_ref().unwrap_or(&self.password_hash))
+            .bind(profile.timezone)
             .bind(self.id)
             .execute(&mut *tx)
             .await?;

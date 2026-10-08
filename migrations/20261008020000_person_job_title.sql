@@ -1,0 +1,1 @@
+ALTER TABLE people ADD COLUMN job_title TEXT NOT NULL DEFAULT '';

@@ -1,6 +1,24 @@
+use crate::models::{
+    dates,
+    person::{self, Person},
+};
+use chrono::Utc;
 use serde::{Deserialize, Deserializer};
 use sqlx::{FromRow, SqlitePool};
 use std::collections::{BTreeMap, HashMap};
+
+pub const TITLE_OPTIONS: [&str; 10] = [
+    "Removed from consideration",
+    "Interview scheduled",
+    "Interview completed",
+    "Take home assigned",
+    "Take home completed",
+    "Offer extended",
+    "Offer rejected",
+    "Offer accepted",
+    "Recruiter screen scheduled",
+    "Recruiter screen completed",
+];
 
 #[derive(Debug, FromRow)]
 pub struct Event {
@@ -12,22 +30,21 @@ pub struct Event {
     pub created_at: String,
     pub updated_at: String,
 }
-#[derive(Debug, Default, Clone, FromRow)]
-pub struct Person {
-    pub first_name: String,
-    pub last_name: String,
-    pub email: String,
-    pub phone: String,
-    pub notes: String,
-}
 #[derive(Default)]
 pub struct Input {
     pub title: String,
+    pub title_choice: String,
     pub occurs_at: String,
+    pub utc_offset: String,
+    pub offset_for: String,
+    pub timezone: String,
     pub notes: String,
-    pub people: Vec<Person>,
+    pub people: Vec<person::Input>,
+    pub available_people: Vec<Person>,
     pub people_action: String,
     pub csrf: String,
+    pub removal_status: String,
+    pub status_prompt: bool,
 }
 // Indexed flat fields support ordinary URL-encoded browser forms and HTMX alike.
 impl<'de> Deserialize<'de> for Input {
@@ -35,13 +52,18 @@ impl<'de> Deserialize<'de> for Input {
         let mut fields = HashMap::<String, String>::deserialize(deserializer)?;
         let mut input = Self {
             title: fields.remove("title").unwrap_or_default(),
+            title_choice: fields.remove("title_choice").unwrap_or_default(),
             occurs_at: fields.remove("occurs_at").unwrap_or_default(),
+            utc_offset: fields.remove("utc_offset").unwrap_or_default(),
+            offset_for: fields.remove("offset_for").unwrap_or_default(),
+            timezone: fields.remove("timezone").unwrap_or_default(),
             notes: fields.remove("notes").unwrap_or_default(),
+            removal_status: fields.remove("removal_status").unwrap_or_default(),
             csrf: fields.remove("csrf").unwrap_or_default(),
             people_action: fields.remove("people_action").unwrap_or_default(),
             ..Self::default()
         };
-        let mut people = BTreeMap::<usize, Person>::new();
+        let mut people = BTreeMap::<usize, person::Input>::new();
         for (key, value) in fields {
             let Some((index, field)) = key
                 .strip_prefix("person_")
@@ -52,8 +74,10 @@ impl<'de> Deserialize<'de> for Input {
             let index = index.parse::<usize>().map_err(serde::de::Error::custom)?;
             let person = people.entry(index).or_default();
             match field {
+                "id" => person.id = value,
                 "first_name" => person.first_name = value,
                 "last_name" => person.last_name = value,
+                "job_title" => person.job_title = value,
                 "email" => person.email = value,
                 "phone" => person.phone = value,
                 "notes" => person.notes = value,
@@ -68,17 +92,44 @@ pub struct ValidatedInput {
     title: String,
     occurs_at: String,
     notes: String,
-    people: Vec<Person>,
+    people: Vec<person::ValidatedInput>,
+    deactivate: bool,
+}
+impl ValidatedInput {
+    pub fn is_removal(&self) -> bool {
+        self.title == "Removed from consideration"
+    }
 }
 impl Input {
-    pub fn validate(&self) -> Result<ValidatedInput, &'static str> {
-        let title = self.title.trim();
+    pub fn for_new(timezone: &str) -> Self {
+        let now = Utc::now().with_timezone(&dates::zone(timezone));
+        Self {
+            occurs_at: now.format("%Y-%m-%dT%H:%M").to_string(),
+            utc_offset: now.format("%:z").to_string(),
+            ..Self::default()
+        }
+    }
+
+    pub fn validate(&self, timezone: &str) -> Result<ValidatedInput, &'static str> {
+        let title = match self.title_choice.as_str() {
+            "" | "custom" => self.title.trim(),
+            choice if TITLE_OPTIONS.contains(&choice) => choice,
+            _ => return Err("Choose an event title from the list, or select Custom."),
+        };
         if title.is_empty() || title.chars().count() > 200 || title.chars().any(char::is_control) {
             return Err("Enter an event title between 1 and 200 characters.");
         }
-        if !valid_datetime(&self.occurs_at) {
-            return Err("Enter a valid date and time in UTC.");
+        if !self.timezone.is_empty() && self.timezone != timezone {
+            return Err(
+                "Your account date settings changed. Check your timezone in account settings and the date and time below, then submit again.",
+            );
         }
+        let offset = if self.offset_for.is_empty() || self.offset_for == self.occurs_at {
+            self.utc_offset.as_str()
+        } else {
+            ""
+        };
+        let occurs_at = dates::to_utc(&self.occurs_at, timezone, offset)?;
         if self.notes.chars().count() > 10000 {
             return Err("Keep notes to 10,000 characters or fewer.");
         }
@@ -86,96 +137,45 @@ impl Input {
             return Err("Add up to 20 people per event.");
         }
         let mut people = Vec::new();
+        let mut selected = std::collections::HashSet::new();
         for person in &self.people {
-            let person = Person {
-                first_name: person.first_name.trim().into(),
-                last_name: person.last_name.trim().into(),
-                email: person.email.trim().into(),
-                phone: person.phone.trim().into(),
-                notes: person.notes.trim().into(),
-            };
-            if person.first_name.is_empty() {
-                return Err("Enter a first name for each person, or remove their row.");
-            }
-            if [
-                &person.first_name,
-                &person.last_name,
-                &person.email,
-                &person.phone,
-            ]
-            .iter()
-            .any(|field| field.chars().count() > 200 || field.chars().any(char::is_control))
+            let person = person.validate()?;
+            if let person::ValidatedInput::Existing(id) = &person
+                && !selected.insert(*id)
             {
-                return Err(
-                    "Keep each person's name, email, and phone to 200 characters or fewer, without control characters.",
-                );
-            }
-            if person.notes.chars().count() > 10000 {
-                return Err("Keep each person's notes to 10,000 characters or fewer.");
-            }
-            let email = &person.email;
-            if !email.is_empty()
-                && (!email.split_once('@').is_some_and(|(name, host)| {
-                    !name.is_empty()
-                        && host.contains('.')
-                        && !host.starts_with('.')
-                        && !host.ends_with('.')
-                        && !host.contains('@')
-                }) || email.chars().any(char::is_whitespace))
-            {
-                return Err("Enter a valid email for each person, or leave their email blank.");
+                return Err("Each person can only be added once per event.");
             }
             people.push(person);
         }
         Ok(ValidatedInput {
             title: title.into(),
-            occurs_at: format!("{}:00.000Z", self.occurs_at),
+            occurs_at,
             notes: self.notes.trim().into(),
             people,
+            deactivate: title == "Removed from consideration" && self.removal_status == "inactive",
         })
     }
-    pub fn from_event(event: &Event, people: &[Person]) -> Self {
+    pub fn from_event(event: &Event, people: &[Person], timezone: &str) -> Self {
         Self {
             title: event.title.clone(),
-            occurs_at: event.occurs_at.chars().take(16).collect(),
+            title_choice: if TITLE_OPTIONS.contains(&event.title.as_str()) {
+                event.title.clone()
+            } else {
+                "custom".into()
+            },
+            occurs_at: dates::local(&event.occurs_at, timezone)
+                .map(|date| date.format("%Y-%m-%dT%H:%M").to_string())
+                .unwrap_or_default(),
+            utc_offset: dates::local(&event.occurs_at, timezone)
+                .map(|date| date.format("%:z").to_string())
+                .unwrap_or_default(),
             notes: event.notes.clone(),
-            people: people.to_vec(),
+            people: people.iter().map(person::Input::from_person).collect(),
             people_action: String::new(),
             csrf: String::new(),
+            ..Self::default()
         }
     }
-}
-fn valid_datetime(value: &str) -> bool {
-    let b = value.as_bytes();
-    if b.len() != 16
-        || b[4] != b'-'
-        || b[7] != b'-'
-        || b[10] != b'T'
-        || b[13] != b':'
-        || b.iter()
-            .enumerate()
-            .any(|(i, c)| ![4, 7, 10, 13].contains(&i) && !c.is_ascii_digit())
-    {
-        return false;
-    }
-    let number = |range: std::ops::Range<usize>| value[range].parse::<u32>().unwrap_or(0);
-    let (year, month, day, hour, minute) = (
-        number(0..4),
-        number(5..7),
-        number(8..10),
-        number(11..13),
-        number(14..16),
-    );
-    let days = match month {
-        4 | 6 | 9 | 11 => 30,
-        2 if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) => {
-            29
-        }
-        2 => 28,
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        _ => 0,
-    };
-    year > 0 && day > 0 && day <= days && hour < 24 && minute < 60
 }
 impl Event {
     pub async fn list(pool: &SqlitePool, user: i64, role: i64) -> Result<Vec<Self>, sqlx::Error> {
@@ -191,7 +191,7 @@ impl Event {
     }
     pub async fn people(&self, pool: &SqlitePool) -> Result<Vec<Person>, sqlx::Error> {
         sqlx::query_as(
-            "SELECT first_name, last_name, email, phone, notes FROM event_people WHERE event_id = ? ORDER BY id",
+            "SELECT people.* FROM people JOIN event_people ON event_people.person_id = people.id WHERE event_people.event_id = ? ORDER BY people.id",
         )
         .bind(self.id)
         .fetch_all(pool)
@@ -205,6 +205,7 @@ impl Event {
         input: ValidatedInput,
     ) -> Result<bool, sqlx::Error> {
         let mut tx = pool.begin().await?;
+        let deactivate = id.is_none() && input.deactivate;
         let event_id: Option<i64> = if let Some(id) = id {
             sqlx::query_scalar("UPDATE events SET title = ?, occurs_at = ?, notes = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND role_id = ? AND role_id IN (SELECT id FROM roles WHERE user_id = ?) RETURNING id").bind(input.title).bind(input.occurs_at).bind(input.notes).bind(id).bind(role).bind(user).fetch_optional(&mut *tx).await?
         } else {
@@ -218,17 +219,15 @@ impl Event {
             .execute(&mut *tx)
             .await?;
         for person in input.people {
-            sqlx::query(
-                "INSERT INTO event_people (event_id, first_name, last_name, email, phone, notes) VALUES (?, ?, ?, ?, ?, ?)",
-            )
-            .bind(id)
-            .bind(person.first_name)
-            .bind(person.last_name)
-            .bind(person.email)
-            .bind(person.phone)
-            .bind(person.notes)
-            .execute(&mut *tx)
-            .await?;
+            if !Person::attach(&mut tx, role, id, person).await? {
+                return Ok(false);
+            }
+        }
+        // Reattach submitted people before pruning: unchanged selections keep their records.
+        Person::delete_unlinked(&mut tx, role).await?;
+        if deactivate {
+            sqlx::query("UPDATE roles SET active = 0, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND user_id = ?")
+                .bind(role).bind(user).execute(&mut *tx).await?;
         }
         tx.commit().await?;
         Ok(true)
@@ -239,6 +238,13 @@ impl Event {
         role: i64,
         id: i64,
     ) -> Result<bool, sqlx::Error> {
-        Ok(sqlx::query("DELETE FROM events WHERE id = ? AND role_id = ? AND role_id IN (SELECT id FROM roles WHERE user_id = ?)").bind(id).bind(role).bind(user).execute(pool).await?.rows_affected() == 1)
+        let mut tx = pool.begin().await?;
+        let deleted = sqlx::query("DELETE FROM events WHERE id = ? AND role_id = ? AND role_id IN (SELECT id FROM roles WHERE user_id = ?)")
+            .bind(id).bind(role).bind(user).execute(&mut *tx).await?.rows_affected() == 1;
+        if deleted {
+            Person::delete_unlinked(&mut tx, role).await?;
+        }
+        tx.commit().await?;
+        Ok(deleted)
     }
 }

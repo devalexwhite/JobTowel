@@ -50,6 +50,13 @@ Keep SQL out of controllers and views, HTTP response decisions out of models, an
 - Serve Bootstrap and HTMX from the local npm build. Avoid CDN dependencies and inline script handlers.
 - Interactive experiences should use HTMX with no-js fallbacks.
 
+## Date and timezone conventions
+
+- Store timestamps in UTC using the existing RFC 3339 millisecond format. Use the signed-in user’s IANA profile timezone for event input, defaults, display, and relative calendar dates.
+- Share conversions through `src/models/dates.rs` using Chrono and chrono-tz; do not calculate local calendar days with SQLite UTC date expressions or fixed offsets.
+- A NULL profile timezone means browser detection is pending; use UTC as the fallback. Browser detection writes through the authenticated, CSRF-protected `/account/timezone` POST and only updates an unset timezone. Explicit profile choices must win over later detection.
+- Preserve date drafts and the chosen occurrence of repeated times. Reject nonexistent local times and require an occurrence choice for ambiguous times. Preserve stored instants when profile timezones change.
+
 ## Database and migration conventions
 
 - Use the shared SQLx pool; do not create a connection pool per request. Preserve WAL mode, foreign keys, busy timeout, and bounded connections.

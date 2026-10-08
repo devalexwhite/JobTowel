@@ -1,23 +1,42 @@
 use crate::{
     models::{
         auth::User,
-        role::{AppliedRole, Input, Role},
+        dates,
+        role::{AppliedRole, Input, Role, StatusFilter},
     },
     views::layout,
 };
 use maud::{Markup, html};
 
-pub fn table(roles: &[AppliedRole], csrf: &str, deleted: bool) -> Markup {
+pub fn table(
+    roles: &[AppliedRole],
+    csrf: &str,
+    deleted: bool,
+    status: StatusFilter,
+    timezone: &str,
+) -> Markup {
     html! {
         div id="applied-roles" {
+            form action="/applied" method="get" hx-get="/applied" hx-target="#applied-roles" hx-swap="outerHTML" class="d-flex flex-wrap align-items-end gap-2 mb-3" {
+                div {
+                    label for="application-status-filter" class="form-label" { "Application status" }
+                    select id="application-status-filter" name="status" class="form-select" {
+                        @for (value, label) in [("active", "Active"), ("inactive", "Inactive"), ("all", "All applications")] {
+                            option value=(value) selected[status.value() == value] { (label) }
+                        }
+                    }
+                }
+                button type="submit" class="btn btn-outline-primary" { "Apply filter" }
+            }
+
             @if deleted { div class="alert alert-success" role="status" { "Application deleted." } }
             @if roles.is_empty() {
-                p class="text-body-secondary py-4" { "No applications recorded yet. Record your first application to get started." }
+                p class="text-body-secondary py-4" { "No applications match this status. Change the filter or record a new application." }
             } @else {
                 div class="table-responsive" {
                     table id="applications-table" data-height="800" class="table align-middle" data-applied-table data-filter-control="true" {
                         caption class="visually-hidden" { "Your recorded applications" }
-                        thead { tr { th scope="col" data-field="role_title" data-sortable="true" data-filter-control="input" data-filter-control-placeholder="Filter role titles" { "Role Title" } th scope="col" data-field="company" data-sortable="true" data-filter-control="input" data-filter-control-placeholder="Filter companies" { "Company" } th scope="col" data-field="last_event_title" { "Last Event" } th scope="col" data-field="actions" data-searchable="false" { span class="visually-hidden" { "Actions" } } } }
+                        thead { tr { th scope="col" data-field="role_title" data-sortable="true" data-filter-control="input" data-filter-control-placeholder="Filter role" { "Role" } th scope="col" data-field="company" data-sortable="true" data-filter-control="input" data-filter-control-placeholder="Filter companies" { "Company" } th scope="col" data-field="last_event_title" { "Movement" } th scope="col" data-field="status" { "Status" } th scope="col" data-field="actions" data-searchable="false" { span class="visually-hidden" { "Actions" } } } }
                         tbody {
                             @for application in roles {
                                 @let role = &application.role;
@@ -26,16 +45,26 @@ pub fn table(roles: &[AppliedRole], csrf: &str, deleted: bool) -> Markup {
                                     td class="text-break" { (&role.company) }
                                     td class="text-break" {
                                         (application.last_event_title.as_deref().unwrap_or("No events"))
-                                        @if let (Some(date), Some(days)) = (&application.last_event_at, application.last_event_days_ago) {
-                                            time class="d-block small text-body-secondary" datetime=(date) title=(format!("{} UTC", date.replace('T', " ").trim_end_matches('Z'))) {
-                                                (relative_event_date(days))
+                                        @if let Some(date) = &application.last_event_at {
+                                            time class="d-block small text-body-secondary" datetime=(date) title=(dates::display(date, timezone)) {
+                                                (dates::display(date, timezone))
+                                            }
+                                        }
+                                    }
+                                    td {
+                                        (if role.active { "Active" } else { "Inactive" })
+                                        @if role.active {
+                                            @if let Some(days) = application.active_days {
+                                                span class="d-block small text-body-secondary" {
+                                                    (days) " " (if days == 1 { "day" } else { "days" })
+                                                }
                                             }
                                         }
                                     }
                                     td { div class="d-flex gap-2" {
                                         a class="btn btn-outline-primary btn-sm" href=(format!("/applied/{}", role.id)) aria-label=(format!("View {} at {}", role.role_title, role.company)) { "View" }
                                         a class="btn btn-outline-primary btn-sm" href=(format!("/applied/{}/edit", role.id)) aria-label=(format!("Edit {} at {}", role.role_title, role.company)) { "Edit" }
-                                        a class="btn btn-outline-danger btn-sm" href=(format!("/applied/{}/delete", role.id)) hx-post=(format!("/applied/{}/delete", role.id)) hx-vals=(format!(r#"{{"csrf":"{csrf}"}}"#)) hx-confirm=(format!("Delete {} at {}? This cannot be undone.", role.role_title, role.company)) hx-target="#applied-roles" hx-swap="outerHTML" hx-disabled-elt="this" aria-label=(format!("Delete {} at {}", role.role_title, role.company)) { "Delete" }
+                                        a class="btn btn-outline-danger btn-sm" href=(format!("/applied/{}/delete", role.id)) hx-post=(format!("/applied/{}/delete?status={}", role.id, status.value())) hx-vals=(format!(r#"{{"csrf":"{csrf}"}}"#)) hx-confirm=(format!("Delete {} at {}? This cannot be undone.", role.role_title, role.company)) hx-target="#applied-roles" hx-swap="outerHTML" hx-disabled-elt="this" aria-label=(format!("Delete {} at {}", role.role_title, role.company)) { "Delete" }
                                     } }
                                 }
                             }
@@ -46,41 +75,14 @@ pub fn table(roles: &[AppliedRole], csrf: &str, deleted: bool) -> Markup {
         }
     }
 }
-fn relative_event_date(days_ago: i64) -> String {
-    match days_ago {
-        0 => return "Today".into(),
-        1 => return "Yesterday".into(),
-        -1 => return "Tomorrow".into(),
-        _ => {}
-    }
-    let days = days_ago.unsigned_abs();
-    let (count, unit) = match days {
-        2..=6 => (days, "day"),
-        7..=29 => (days / 7, "week"),
-        30..=364 => (days / 30, "month"),
-        _ => (days / 365, "year"),
-    };
-    if days_ago < 0 {
-        if count == 1 {
-            format!("In a {unit}")
-        } else {
-            format!("In {count} {unit}s")
-        }
-    } else if count == 1 {
-        format!("A {unit} ago")
-    } else {
-        format!("{count} {unit}s ago")
-    }
-}
-
-pub fn index(user: &User, csrf: &str, roles: &[AppliedRole]) -> Markup {
+pub fn index(user: &User, csrf: &str, roles: &[AppliedRole], status: StatusFilter) -> Markup {
     layout::shell(
         "Applied",
         html! {
             h1 class="h2 mb-4" { "Applied" }
             a class="btn btn-primary mb-4" href="/applied/new" { "Record new application" }
             div id="request-error" role="alert" {}
-            (table(roles, csrf, false))
+            (table(roles, csrf, false, status, user.timezone()))
         },
         Some(user),
         csrf,
@@ -93,7 +95,7 @@ pub fn form(input: &Input, csrf: &str, id: Option<i64>, error: Option<&str>) -> 
             input type="hidden" name="csrf" value=(csrf);
             @if let Some(error) = error { div id="role-validation-error" class="alert alert-danger" role="alert" tabindex="-1" data-validation-error { (error) } }
             @for (name, label, kind, value, max, required) in [
-                ("role_title", "Role Title", "text", input.role_title.as_str(), "200", true),
+                ("role_title", "Role", "text", input.role_title.as_str(), "200", true),
                 ("company", "Company", "text", input.company.as_str(), "200", true),
                 ("posting_url", "Posting URL (optional)", "url", input.posting_url.as_str(), "2048", false),
             ] {
@@ -104,7 +106,15 @@ pub fn form(input: &Input, csrf: &str, id: Option<i64>, error: Option<&str>) -> 
             }
             div class="mb-4" {
                 label class="form-label" for="role_description" { "Role Description (optional)" }
-                textarea class="form-control" id="role_description" name="role_description" rows="8" maxlength="10000" { (&input.role_description) }
+                (crate::views::notes::editor("role_description", &input.role_description, 8))
+            }
+            @if id.is_some() {
+                input type="hidden" name="status_present" value="true";
+                div class="form-check form-switch mb-4" {
+                    input class="form-check-input" type="checkbox" role="switch" id="active" name="active" value="true" checked[if input.status_present == "true" { input.active.as_deref() == Some("true") } else { input.active.as_deref() != Some("false") }] aria-describedby="active-help";
+                    label for="active" class="form-check-label" { "Active application" }
+                    div id="active-help" class="form-text" { "Turn off to mark this application inactive." }
+                }
             }
             div class="d-flex gap-3 align-items-center" {
                 button class="btn btn-primary" type="submit" {
@@ -153,34 +163,4 @@ pub fn confirmation(user: &User, csrf: &str, role: &Role) -> Markup {
         Some(user),
         csrf,
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::relative_event_date;
-
-    #[test]
-    fn relative_dates_cover_past_future_and_unit_boundaries() {
-        for (days, expected) in [
-            (0, "Today"),
-            (1, "Yesterday"),
-            (2, "2 days ago"),
-            (6, "6 days ago"),
-            (7, "A week ago"),
-            (14, "2 weeks ago"),
-            (29, "4 weeks ago"),
-            (30, "A month ago"),
-            (60, "2 months ago"),
-            (364, "12 months ago"),
-            (365, "A year ago"),
-            (730, "2 years ago"),
-            (-1, "Tomorrow"),
-            (-2, "In 2 days"),
-            (-7, "In a week"),
-            (-30, "In a month"),
-            (-365, "In a year"),
-        ] {
-            assert_eq!(relative_event_date(days), expected);
-        }
-    }
 }

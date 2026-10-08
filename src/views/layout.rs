@@ -52,6 +52,12 @@ pub fn shell(title: &str, content: Markup, user: Option<&User>, csrf: &str) -> M
                         }
                     }
                 }
+                @if let Some(user) = user && user.timezone.is_none() {
+                    form id="timezone-detection" hidden method="post" action="/account/timezone" hx-post="/account/timezone" hx-trigger="timezone-detected" hx-swap="none" {
+                        input type="hidden" name="csrf" value=(csrf);
+                        input type="hidden" name="timezone" value="";
+                    }
+                }
                 main id="main" class="container py-4 py-md-5" { (content) }
             }
         }

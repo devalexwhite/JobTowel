@@ -3,7 +3,8 @@ use crate::{
     controllers::auth::{forbidden, htmx, redirect, signed_in},
     error::AppError,
     models::{
-        event::{Event, Input, Person},
+        event::{Event, Input},
+        person::{self, Person},
         role::Role,
     },
     views,
@@ -69,14 +70,15 @@ async fn show(
     let Some(role) = Role::find(&state.pool, user.id, role_id).await? else {
         return Ok(missing());
     };
-    let input = if let Some(id) = id {
+    let mut input = if let Some(id) = id {
         let Some(event) = Event::find(&state.pool, user.id, role_id, id).await? else {
             return Ok(missing());
         };
-        Input::from_event(&event, &event.people(&state.pool).await?)
+        Input::from_event(&event, &event.people(&state.pool).await?, user.timezone())
     } else {
-        Input::default()
+        Input::for_new(user.timezone())
     };
+    input.available_people = Person::list(&state.pool, user.id, role_id).await?;
     Ok(
         views::events::page(&user, &session.csrf, &role, &input, id, deleting, None)
             .into_response(),
@@ -130,11 +132,12 @@ async fn save(
     {
         return Ok(missing());
     }
+    input.available_people = Person::list(&state.pool, user.id, role_id).await?;
     if !deleting && !input.people_action.is_empty() {
         let mut error = None;
         if input.people_action == "add" {
             if input.people.len() < 20 {
-                input.people.push(Person::default());
+                input.people.push(person::Input::default());
             } else {
                 error = Some("Add up to 20 people per event.");
             }
@@ -147,7 +150,7 @@ async fn save(
             input.people.remove(index);
         }
         let view = if htmx(&headers) {
-            views::events::form(&input, &session.csrf, role_id, id, error)
+            views::events::form(&input, &session.csrf, role_id, id, user.timezone(), error)
         } else {
             views::events::page(&user, &session.csrf, &role, &input, id, false, error)
         };
@@ -164,17 +167,47 @@ async fn save(
     let saved = if deleting {
         Event::delete(&state.pool, user.id, role_id, id.unwrap()).await?
     } else {
-        let validated = match input.validate() {
+        let membership =
+            input.people.iter().all(|person| {
+                person.id.is_empty()
+                    || person.id.parse::<i64>().ok().is_some_and(|id| {
+                        input.available_people.iter().any(|person| person.id == id)
+                    })
+            });
+        let validated = match if membership {
+            input.validate(user.timezone())
+        } else {
+            Err("Choose an existing person from this application, or add a new person.")
+        } {
             Ok(value) => value,
             Err(error) => {
                 let view = if htmx(&headers) {
-                    views::events::form(&input, &session.csrf, role_id, id, Some(error))
+                    views::events::form(
+                        &input,
+                        &session.csrf,
+                        role_id,
+                        id,
+                        user.timezone(),
+                        Some(error),
+                    )
                 } else {
                     views::events::page(&user, &session.csrf, &role, &input, id, false, Some(error))
                 };
                 return Ok((StatusCode::UNPROCESSABLE_ENTITY, view).into_response());
             }
         };
+        if id.is_none()
+            && validated.is_removal()
+            && !["keep", "inactive"].contains(&input.removal_status.as_str())
+        {
+            input.status_prompt = true;
+            let view = if htmx(&headers) {
+                views::events::form(&input, &session.csrf, role_id, id, user.timezone(), None)
+            } else {
+                views::events::page(&user, &session.csrf, &role, &input, id, false, None)
+            };
+            return Ok(view.into_response());
+        }
         Event::save(&state.pool, user.id, role_id, id, validated).await?
     };
     if !saved {

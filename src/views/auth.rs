@@ -38,6 +38,23 @@ pub fn form(kind: &str, input: &Input, csrf: &str, error: Option<&str>) -> Marku
                 (field("name", "Name", "text", &input.name, "name", true))
                 (field("email", "Email address", "email", &input.email, "email", true))
             }
+            @if kind == "signup" {
+                input type="hidden" name="timezone" value=(input.timezone.as_deref().unwrap_or("")) data-browser-timezone[input.timezone.as_deref().is_none_or(str::is_empty)];
+            }
+            @if kind == "account" {
+                div class="mb-3" {
+                    label class="form-label" for="timezone" { "Timezone" }
+                    select id="timezone" name="timezone" class="form-select" aria-describedby="timezone-help" {
+                        @if let Some(value) = &input.timezone && !value.is_empty() && value.parse::<chrono_tz::Tz>().is_err() {
+                            option value=(value) selected { (value) }
+                        }
+                        @for zone in chrono_tz::TZ_VARIANTS {
+                            option value=(zone.name()) selected[input.timezone.as_deref().unwrap_or("UTC") == zone.name()] { (zone.name().replace('_', " ")) }
+                        }
+                    }
+                    p id="timezone-help" class="form-text" { "Used for all event and application dates. Detected from your browser by default; you can change it here." }
+                }
+            }
             @if kind == "account" {
                 hr class="my-4";
                 h2 class="h5" { "Change password" }
@@ -79,17 +96,6 @@ pub fn page(kind: &str, form: Markup, user: Option<&User>, csrf: &str, saved: bo
             }
         },
         user,
-        csrf,
-    )
-}
-pub fn dashboard(user: &User, csrf: &str) -> Markup {
-    layout::shell(
-        "Dashboard",
-        html! {
-            h1 class="h2" { "Welcome, " (&user.name) "." }
-            p class="text-body-secondary" { "You're signed in to your Jobtowel dashboard." }
-        },
-        Some(user),
         csrf,
     )
 }

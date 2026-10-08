@@ -190,7 +190,8 @@ pub async fn dashboard(
     let Some((session, user)) = signed_in(&state, &headers).await? else {
         return Ok(redirect(&headers, "/login"));
     };
-    Ok(views::auth::dashboard(&user, &session.csrf).into_response())
+    let summary = crate::models::dashboard::Summary::load(&state.pool, user.id).await?;
+    Ok(views::dashboard::page(&user, &session.csrf, &summary).into_response())
 }
 #[derive(Deserialize)]
 pub struct AccountQuery {
@@ -207,6 +208,7 @@ pub async fn account_page(
     let input = Input {
         name: user.name.clone(),
         email: user.email.clone(),
+        timezone: Some(user.timezone().to_owned()),
         ..Input::default()
     };
     Ok(views::auth::page(
@@ -277,4 +279,35 @@ pub async fn logout(
             .map_err(|_| AppError::Authentication)?,
     );
     Ok(response)
+}
+
+pub async fn initialize_timezone(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Form(input): Form<Input>,
+) -> Result<Response, AppError> {
+    let Some((session, user)) = signed_in(&state, &headers).await? else {
+        return Ok(forbidden());
+    };
+    if !session.accepts(&input.csrf) {
+        return Ok(forbidden());
+    }
+    let Some(timezone) = input
+        .timezone
+        .and_then(|zone| zone.parse::<chrono_tz::Tz>().ok())
+    else {
+        return Ok((StatusCode::UNPROCESSABLE_ENTITY, "Choose a valid timezone.").into_response());
+    };
+    let changed = user.initialize_timezone(&state.pool, timezone).await?;
+    if !htmx(&headers) {
+        return Ok(redirect(&headers, "/account"));
+    }
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(
+            "X-Timezone-Initialized",
+            if changed { "true" } else { "false" },
+        )],
+    )
+        .into_response())
 }
