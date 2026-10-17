@@ -87,7 +87,6 @@ pub fn index(user: &User, csrf: &str, roles: &[AppliedRole], status: StatusFilte
             div class="page-heading" {
                 div {
                     h1 class="h2" { "Applied" }
-                    p class="text-body-secondary mb-0" { "Every opportunity, and what comes next." }
                 }
                 a class="btn btn-primary" href="/applied/new" { (layout::icon("plus")) "Record new application" }
             }

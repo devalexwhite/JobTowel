@@ -16,7 +16,6 @@ pub fn page(user: &User, csrf: &str, summary: &Summary) -> Markup {
             div class="page-heading" {
                 div {
                     h1 class="h2" { "Welcome, " (&user.name) "." }
-                    p class="text-body-secondary mb-0" { "A little progress, one application at a time." }
                 }
                 a class="btn btn-primary" href="/applied/new" { (layout::icon("plus")) "Record application" }
             }
@@ -61,8 +60,7 @@ pub fn page(user: &User, csrf: &str, summary: &Summary) -> Markup {
                 div class="col-12" {
                     section class="milestones" aria-labelledby="milestones-title" {
                         div class="card-body" {
-                            h2 id="milestones-title" class="h5 card-title" { "Your milestones" }
-                            p class="text-body-secondary mb-0" { "Your events over the last 14 days, including today." }
+                            h2 id="milestones-title" class="h5 card-title" { "Milestones" }
                         }
                         ol class="list-group list-group-flush list-unstyled mb-0" {
                             @for day in &summary.milestone_days {
