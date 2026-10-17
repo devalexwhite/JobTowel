@@ -390,3 +390,43 @@ async fn person_job_title_migration_preserves_existing_contacts() {
         ""
     );
 }
+
+#[tokio::test]
+async fn theme_migration_defaults_existing_users_and_rejects_invalid_preferences() {
+    let (pool, _dir) = database().await;
+    sqlx::raw_sql(include_str!(
+        "../migrations/20261006010000_create_users_and_sessions.sql"
+    ))
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO users (username, name, email, password_hash) VALUES ('old', 'Old', 'old@example.com', 'unchanged')").execute(&pool).await.unwrap();
+    sqlx::raw_sql(include_str!("../migrations/20261016000000_user_theme.sql"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    let user: (String, String) = sqlx::query_as("SELECT password_hash, theme FROM users")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(user, ("unchanged".into(), "auto".into()));
+    for theme in ["auto", "light", "dark"] {
+        sqlx::query("UPDATE users SET theme = ?")
+            .bind(theme)
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    assert!(
+        sqlx::query("UPDATE users SET theme = 'invalid'")
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+    assert!(
+        sqlx::query("UPDATE users SET theme = NULL")
+            .execute(&pool)
+            .await
+            .is_err()
+    );
+}

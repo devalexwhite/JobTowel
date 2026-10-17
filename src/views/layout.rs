@@ -21,7 +21,7 @@ pub fn page(title: &str, content: Markup) -> Markup {
 pub fn shell(title: &str, content: Markup, user: Option<&User>, csrf: &str) -> Markup {
     html! {
         (DOCTYPE)
-        html lang="en" {
+        html lang="en" data-bs-theme=(user.map_or("auto", |user| user.theme.as_str())) {
             head {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1";

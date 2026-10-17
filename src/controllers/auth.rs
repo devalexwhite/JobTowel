@@ -209,6 +209,7 @@ pub async fn account_page(
         name: user.name.clone(),
         email: user.email.clone(),
         timezone: Some(user.timezone().to_owned()),
+        theme: Some(user.theme.clone()),
         ..Input::default()
     };
     Ok(views::auth::page(

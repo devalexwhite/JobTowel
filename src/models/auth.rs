@@ -17,9 +17,12 @@ pub struct User {
     pub email: String,
     pub password_hash: String,
     pub timezone: Option<String>,
+    pub theme: String,
 }
 #[derive(Default, Deserialize)]
 pub struct Input {
+    #[serde(default)]
+    pub theme: Option<String>,
     #[serde(default)]
     pub username: String,
     #[serde(default)]
@@ -36,6 +39,7 @@ pub struct Input {
     pub timezone: Option<String>,
 }
 pub struct Profile {
+    theme: Option<String>,
     timezone: Option<String>,
     name: String,
     email: String,
@@ -64,7 +68,15 @@ impl Input {
         if timezone.is_some_and(|zone| zone.parse::<chrono_tz::Tz>().is_err()) {
             return Err("Choose a valid timezone from the list.");
         }
+        if self
+            .theme
+            .as_deref()
+            .is_some_and(|theme| !matches!(theme, "auto" | "light" | "dark"))
+        {
+            return Err("Choose Auto, Light, or Dark for your theme.");
+        }
         Ok(Profile {
+            theme: self.theme.clone(),
             timezone: timezone.map(str::to_owned),
             name: name.into(),
             email: email.to_ascii_lowercase(),
@@ -165,11 +177,12 @@ impl User {
         hash: Option<String>,
     ) -> Result<(), sqlx::Error> {
         let mut tx = pool.begin().await?;
-        sqlx::query("UPDATE users SET name = ?, email = ?, password_hash = ?, timezone = COALESCE(?, timezone) WHERE id = ?")
+        sqlx::query("UPDATE users SET name = ?, email = ?, password_hash = ?, timezone = COALESCE(?, timezone), theme = COALESCE(?, theme) WHERE id = ?")
             .bind(profile.name)
             .bind(profile.email)
             .bind(hash.as_ref().unwrap_or(&self.password_hash))
             .bind(profile.timezone)
+            .bind(profile.theme)
             .bind(self.id)
             .execute(&mut *tx)
             .await?;

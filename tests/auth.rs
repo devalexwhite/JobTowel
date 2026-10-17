@@ -1514,7 +1514,7 @@ async fn homepage_milestones_cover_fourteen_local_days_and_only_owned_events() {
         let milestones = html.split("id=\"milestones-title\"").nth(1).unwrap();
         assert_eq!(milestones.matches("<h3 ").count(), 14);
         for expected in [
-            "Your milestones",
+            "Milestones",
             "&lt;b&gt;Today event&lt;/b&gt;",
             "&lt;b&gt;Engineer&lt;/b&gt;",
             "&lt;script&gt;Company&lt;/script&gt;",
@@ -2658,4 +2658,103 @@ async fn markdown_preview_requires_session_csrf_and_bounded_safe_content() {
     .await;
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert!(text(response).await.contains("10,000 characters"));
+}
+
+#[tokio::test]
+async fn account_theme_is_validated_persisted_and_rendered_across_pages() {
+    use jobtowel::models::auth::User;
+    let (app, pool, _dir) = app().await;
+    let guest = text(request(&app, "/login", "", None, false).await).await;
+    assert!(guest.contains("data-bs-theme=\"auto\""));
+    let mut owner = signup(&app, "themed", "themed@example.com").await;
+    let other = signup(&app, "othertheme", "other-theme@example.com").await;
+    assert_eq!(
+        User::by_username(&pool, "themed")
+            .await
+            .unwrap()
+            .unwrap()
+            .theme,
+        "auto"
+    );
+    for (theme, hx) in [("dark", true), ("light", false), ("auto", true)] {
+        let html = text(request(&app, "/account", &owner, None, false).await).await;
+        assert!(html.contains("id=\"theme\" name=\"theme\""));
+        let token = csrf(&html);
+        let response = request(
+            &app,
+            "/account",
+            &owner,
+            Some(&format!(
+                "csrf={token}&name=Test+User&email=themed%40example.com&theme={theme}"
+            )),
+            hx,
+        )
+        .await;
+        if hx {
+            assert_eq!(response.headers()["HX-Redirect"], "/account?saved=1");
+        } else {
+            assert_eq!(response.status(), StatusCode::SEE_OTHER);
+            assert_eq!(response.headers()["location"], "/account?saved=1");
+        }
+        owner = cookie(&response);
+        assert_eq!(
+            User::by_username(&pool, "themed")
+                .await
+                .unwrap()
+                .unwrap()
+                .theme,
+            theme
+        );
+        for path in ["/account", "/dashboard", "/applied", "/applied/new"] {
+            let html = text(request(&app, path, &owner, None, false).await).await;
+            assert!(html.contains(&format!("data-bs-theme=\"{theme}\"")));
+            if path == "/account" {
+                assert!(html.contains(&format!("value=\"{theme}\" selected")));
+            }
+        }
+    }
+    let html = text(request(&app, "/account", &owner, None, false).await).await;
+    let token = csrf(&html);
+    let response = request(&app, "/account", &owner, Some(&format!("csrf={token}&name=Draft+Name&email=themed%40example.com&theme=%3Cscript%3E&password=secret")), true).await;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let html = text(response).await;
+    assert!(html.starts_with("<form") && html.contains("Choose Auto, Light, or Dark"));
+    assert!(html.contains("value=\"Draft Name\"") && !html.contains("value=\"secret\""));
+    let response = request(
+        &app,
+        "/account",
+        &owner,
+        Some(&format!(
+            "csrf={token}&name=Draft+Name&email=bad&theme=dark"
+        )),
+        true,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text(response).await.contains("value=\"dark\" selected"));
+    assert_eq!(
+        request(
+            &app,
+            "/account",
+            &owner,
+            Some("csrf=wrong&name=Test&email=themed%40example.com&theme=dark"),
+            true
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        User::by_username(&pool, "themed")
+            .await
+            .unwrap()
+            .unwrap()
+            .theme,
+        "auto"
+    );
+    assert!(
+        text(request(&app, "/dashboard", &other, None, false).await)
+            .await
+            .contains("data-bs-theme=\"auto\"")
+    );
 }

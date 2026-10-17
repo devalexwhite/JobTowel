@@ -3,7 +3,7 @@
 .bootstrap-table .fixed-table-container .table thead th { border: 0; border-bottom: 1px solid var(--bs-border-color); }
 .bootstrap-table .fixed-table-container .table thead th .th-inner { font-size: .8125rem; color: var(--bs-secondary-color); font-weight: 600; padding: .85rem .75rem; }
 .bootstrap-table .fixed-table-container .table td { border: 0; border-bottom: 1px solid var(--bs-border-color); padding: 1.15rem .75rem; }
-.bootstrap-table .fixed-table-container .table tbody tr:hover { --bs-table-bg: #f7f5f1; }
+.bootstrap-table .fixed-table-container .table tbody tr:hover { --bs-table-bg: var(--workspace-surface); }
 [data-applied-table] td:first-child { font-weight: 600; }
 [data-applied-table] td .small { font-weight: 400; margin-top: .25rem; font-size: .75rem; }
 [data-applied-table] td:last-child .btn { font-size: .75rem; padding: .4rem .6rem; }

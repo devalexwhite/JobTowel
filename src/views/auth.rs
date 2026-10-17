@@ -56,6 +56,15 @@ pub fn form(kind: &str, input: &Input, csrf: &str, error: Option<&str>) -> Marku
                 }
             }
             @if kind == "account" {
+                div class="mb-3" {
+                    label class="form-label" for="theme" { "Theme" }
+                    select id="theme" name="theme" class="form-select" aria-describedby="theme-help" {
+                        @for (value, label) in [("auto", "Auto"), ("light", "Light"), ("dark", "Dark")] {
+                            option value=(value) selected[input.theme.as_deref().unwrap_or("auto") == value] { (label) }
+                        }
+                    }
+                    p id="theme-help" class="form-text" { "Auto follows your browser’s light or dark preference. Save changes to apply your theme." }
+                }
                 hr class="my-4";
                 h2 class="h5" { "Change password" }
                 p id="password-help" class="small text-body-secondary" { "Leave the new password blank to keep your current password. Use at least 8 characters for a new password." }
@@ -85,7 +94,7 @@ pub fn page(kind: &str, form: Markup, user: Option<&User>, csrf: &str, saved: bo
             section class="auth-container mx-auto" aria-labelledby="page-title" {
                 h1 id="page-title" class="h2 mb-2" { (title) }
                 p class="text-body-secondary mb-4" {
-                    (match kind { "signup" => "Sign up to get started with Jobtowel.", "account" => "Manage your personal details and password.", _ => "Log in to your Jobtowel dashboard." })
+                    (match kind { "signup" => "Sign up to get started with Jobtowel.", "account" => "Manage your personal details, appearance, and password.", _ => "Log in to your Jobtowel dashboard." })
                 }
                 @if let Some(user) = user { p class="small text-body-secondary" { "Username: " strong { (&user.username) } } }
                 @if saved { div class="alert alert-success" role="status" { "Your account has been updated." } }

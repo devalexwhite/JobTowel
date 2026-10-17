@@ -200,3 +200,9 @@ Job descriptions and event/person notes use a shared Markdown editor with Bold, 
 - Don't require JavaScript for basic form submission or access to native details menus.
 - Don't introduce remote font or icon dependencies for this interface.
 - Don't use motion or color as the only indication of state or an error.
+
+## Color modes
+
+Account offers a labeled native Theme select with Auto, Light, and Dark, saved with the profile. Auto is the default for existing and new accounts and follows `prefers-color-scheme` through CSS, including live changes and no-JavaScript visits. Signed-out pages use Auto. The server renders the saved `data-bs-theme` before styles load to avoid a light flash. Bootstrap’s shared color-mode mixin emits both explicit Dark and Auto media-query variants, covering native fields and Bootstrap components.
+
+Dark keeps the warm identity: canvas `#211f1d`, surface `#2a2724`, text `#e8e2db`, muted text `#b9b0a7`, borders `#514940`, selected navigation `#482e27`, and coral links `#f09a87`. Navigation, avatars, table hover, outlines, popovers, Markdown, and feedback use theme variables. Preserve the existing light palette and layout in Light mode.
